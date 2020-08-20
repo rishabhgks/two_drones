@@ -1,0 +1,4 @@
+<launch>
+  <!-- <include file="$(find airsim_ros_pkgs)/launch/airsim_node.launch"/> -->
+  <node name="test_node" pkg="two_drones" type="test_node" output="screen" />
+</launch>
