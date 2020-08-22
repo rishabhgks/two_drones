@@ -51,6 +51,9 @@ public:
     float mean_start_nor;
     float direction;
     float time;
+    float timer;
+    float register_time;
+    int counter;
     float kp_x, kp_y, kp_z, kp_yaw, kd_x, kd_y, kd_z, kd_yaw, reached_thresh_xyz, reached_yaw_degrees;
     std::string VEHICLE_NAME;
     XYZYaw target;
@@ -66,7 +69,7 @@ public:
     double diff_yaw;
     bool reached_goal_;
 
-    Drone_Mission(std::string n) : name(n), state(0), substate(0), finished(false), mean_start_gps(0.0), Y_POS(1.0), max_vel_horz_abs(1.0), max_vel_vert_abs(0.5), max_yaw_rate_degree(10.0)
+    Drone_Mission(std::string n) : name(n), state(0), substate(0), finished(false), mean_start_gps(0.0), Y_POS(1.0), max_vel_horz_abs(1.0), max_vel_vert_abs(0.5), max_yaw_rate_degree(10.0), counter(0)
     {
         target.x = 0.0;
         target.y = 0.0;

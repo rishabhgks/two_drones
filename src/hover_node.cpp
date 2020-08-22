@@ -15,8 +15,10 @@
 
 Drone_Mission drone1("drone1");
 Drone_Mission drone2("drone2");
-float time1 = 0;
-float time2 = 0;
+
+float globalTime = 0;
+float globalStartTime = 0;
+bool counter = false;
 
 geometry_msgs::Vector3 waypoint;
 
@@ -69,14 +71,23 @@ drone2.take_off = n.serviceClient<airsim_ros_pkgs::Takeoff>("/airsim_node/Simple
   ros::Rate loop_rate(10);
 // %EndTag(LOOP_RATE)%
 
-  drone1.time = drone2.time = ros::Time::now().toSec();
+drone1.time = drone2.time = ros::Time::now().toSec();
 
 // %Tag(ROS_OK)%
   static int count = 0;
   while (ros::ok())
   {
-    ROS_INFO("Current state: %d Current time: %f", drone1.state, (ros::Time::now().toSec() - drone1.time));
-    if((ros::Time::now().toSec() - drone1.time) > 10 && (ros::Time::now().toSec() - drone1.time) < 30 && count < 2) {
+    globalTime = (ros::Time::now().toSec() - drone1.time);
+    if(counter)
+    {
+      globalStartTime = globalTime;
+      counter = false;
+      drone1.counter = 1;
+      drone2.counter = 1;
+      ROS_INFO("Start Time is %f", globalStartTime);
+    }
+    ROS_INFO("Current state: %d Current time: %f", drone1.state, globalTime);
+    if(globalTime > 10 && globalTime < 30 && count < 2) {
       drone1.state = 1;
       drone2.state = 1;
       ++count;
@@ -271,15 +282,15 @@ void step(Drone_Mission &drone) {
   // ros::Rate r(0.2);
     // r.sleep();
   if(drone.state == 1 && drone.finished != true) {
-    if(drone.current_gps.altitude - drone.mean_start_gps < 4.8) {
-      if(drone.current_gps.altitude - drone.mean_start_gps > 4.75)
-        drone.motor_msg.twist.linear.z = -0.05;
+    if(drone.current_gps.altitude - drone.mean_start_gps < 5.8) {
+      if(drone.current_gps.altitude - drone.mean_start_gps > 5.75)
+        drone.motor_msg.twist.linear.z = -0.3;
       else
-        drone.motor_msg.twist.linear.z = -0.15;
+        drone.motor_msg.twist.linear.z = -0.2;
       drone.motor_msg.twist.angular.z = 0.0;
       drone.move_drone.publish(drone.motor_msg);
-    } else if(drone.current_gps.altitude - drone.mean_start_gps > 5.2){
-      drone.motor_msg.twist.linear.z = 0.05;
+    } else {
+      drone.motor_msg.twist.linear.z = 0.3;
       drone.motor_msg.twist.angular.z = 0.0;
       drone.move_drone.publish(drone.motor_msg);  
     }
@@ -294,12 +305,12 @@ void step(Drone_Mission &drone) {
     if(ros::Time::now().toSec() - drone.time > 40) {
       drone.finished = true;
     }
-    ROS_INFO("Orig: %f  Modified: %f", drone.current_gps.altitude, drone.current_gps.altitude - drone.mean_start_gps);
+    // ROS_INFO("Orig: %f  Modified: %f", drone.current_gps.altitude, drone.current_gps.altitude - drone.mean_start_gps);
   }
   if(drone.state == 2 && drone.finished != true) {
     if(drone.current_gps.altitude - drone.mean_start_gps > 0.05){
       drone.motor_msg.twist.linear.x = 0.0;
-      drone.motor_msg.twist.linear.z = 0.15;
+      drone.motor_msg.twist.linear.z = 0.4;
       drone.motor_msg.twist.angular.z = 0.0;
       drone.move_drone.publish(drone.motor_msg);  
     } else {
@@ -331,16 +342,58 @@ void step(Drone_Mission &drone) {
     drone.enforce_dynamic_constraints();
     drone.move_drone.publish(drone.motor_msg);
     drone.check_reached_goal();
-    if(drone.reached_goal_)
+    if(drone.reached_goal_){
+      drone.timer = ros::Time::now().toSec();
       drone.finished = true;
+    }
   }
   if(drone.state == 6 && drone.finished != true) {
     drone.compute_control_cmd();
     drone.enforce_dynamic_constraints();
     drone.move_drone.publish(drone.motor_msg);
     drone.check_reached_goal();
-    if(drone.reached_goal_)
+    if(drone.reached_goal_){
+      drone.timer = ros::Time::now().toSec();
       drone.finished = true;
+    }
+  }
+  if(drone.state == 7 && drone.finished != true) {
+    if(drone.current_gps.altitude - drone.mean_start_gps < 5.8) {
+      if(drone.current_gps.altitude - drone.mean_start_gps > 5.75)
+        drone.motor_msg.twist.linear.z = -0.3;
+      else
+        drone.motor_msg.twist.linear.z = -0.2;
+      drone.motor_msg.twist.angular.z = 0.0;
+      drone.move_drone.publish(drone.motor_msg);
+    } else {
+      drone.motor_msg.twist.linear.z = 0.3;
+      drone.motor_msg.twist.angular.z = 0.0;
+      drone.move_drone.publish(drone.motor_msg);  
+    }
+    if((drone.counter == 1) && ((globalTime - globalStartTime) > 5)) {
+      drone.finished = true;
+      drone.counter = 0;
+      ROS_INFO("Time DIff: %f", (globalTime - globalStartTime));
+    }
+  }
+  if(drone.state == 8 && drone.finished != true) {
+    if(drone.current_gps.altitude - drone.mean_start_gps < 5.8) {
+      if(drone.current_gps.altitude - drone.mean_start_gps > 5.75)
+        drone.motor_msg.twist.linear.z = -0.3;
+      else
+        drone.motor_msg.twist.linear.z = -0.2;
+      drone.motor_msg.twist.angular.z = 0.0;
+      drone.move_drone.publish(drone.motor_msg);
+    } else {
+      drone.motor_msg.twist.linear.z = 0.3;
+      drone.motor_msg.twist.angular.z = 0.0;
+      drone.move_drone.publish(drone.motor_msg);  
+    }
+    if((drone.counter == 1) && ((globalTime - globalStartTime) > 5)) {
+      drone.finished = true;
+      drone.counter = 0;
+      ROS_INFO("Time DIff: %f", (globalTime - globalStartTime));
+    }
   }
 }
 
@@ -687,7 +740,7 @@ void drone1_gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg) {
         step(drone1);
       } else {
         drone1.state = 5;
-        drone1.target.x = -1;
+        drone1.target.x = -3;
         drone1.target.y = 6;
         drone1.target.z = -5;
         drone1.reached_goal_ = false;
@@ -726,11 +779,8 @@ void drone1_gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg) {
       if(drone1.finished == false) {
         step(drone1);
       } else {
-        drone1.state = 6;
-        drone1.target.x = 10;
-        drone1.target.y = 6;
-        drone1.target.z = -5;
-        drone1.reached_goal_ = false;
+        drone1.state = 7;
+        counter = true;
         drone1.finished = false;
         ROS_INFO("Done Moving in Local Frame");
       }
@@ -739,9 +789,36 @@ void drone1_gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg) {
       if(drone1.finished == false) {
         step(drone1);
       } else {
-        drone1.state = 2;
+        drone1.state = 8;
+        counter = true;
         drone1.finished = false;
         ROS_INFO("Done Moving in Local Frame");
+      }
+      break; 
+    case 7:
+      if(drone1.finished == false) {
+        step(drone1);
+      } else {
+        drone1.state = 6;
+        drone1.target.x = 7;
+        drone1.target.y = 6;
+        drone1.target.z = -5;
+        drone1.reached_goal_ = false;
+        drone1.finished = false;
+        ROS_INFO("Done waiting for 5 seconds");
+      }
+      break; 
+    case 8:
+      if(drone1.finished == false) {
+        step(drone1);
+      } else {
+        drone1.state = 2;
+        drone1.target.x = 7;
+        drone1.target.y = 6;
+        drone1.target.z = -5;
+        drone1.reached_goal_ = false;
+        drone1.finished = false;
+        ROS_INFO("Done waiting for 5 seconds");
       }
       break; 
     default:
@@ -773,7 +850,7 @@ void drone2_gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg) {
         step(drone2);
       } else {
         drone2.state = 5;
-        drone2.target.x = 1;
+        drone2.target.x = 3;
         drone2.target.y = -6;
         drone2.target.z = -5;
         drone2.target.yaw = 0;
@@ -813,11 +890,7 @@ void drone2_gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg) {
       if(drone2.finished == false) {
         step(drone2);
       } else {
-        drone2.state = 6;
-        drone2.target.x = 10;
-        drone2.target.y = -6;
-        drone2.target.z = -5;
-        drone2.reached_goal_ = false;
+        drone2.state = 7;
         drone2.finished = false;
         ROS_INFO("Done Moving in Local Frame");
       }
@@ -826,9 +899,36 @@ void drone2_gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg) {
       if(drone2.finished == false) {
         step(drone2);
       } else {
-        drone2.state = 2;
+        drone2.state = 8;
         drone2.finished = false;
+        drone2.timer = 0;
         ROS_INFO("Done Moving in Local Frame");
+      }
+      break;
+    case 7:
+      if(drone2.finished == false) {
+        step(drone2);
+      } else {
+        drone2.state = 6;
+        drone2.target.x = 13;
+        drone2.target.y = -6;
+        drone2.target.z = -5;
+        drone2.reached_goal_ = false;
+        drone2.finished = false;
+        ROS_INFO("Done Waiting for 5 seconds");
+      }
+      break;
+    case 8:
+      if(drone2.finished == false) {
+        step(drone2);
+      } else {
+        drone2.state = 2;
+        drone2.target.x = 13;
+        drone2.target.y = -6;
+        drone2.target.z = -5;
+        drone2.reached_goal_ = false;
+        drone2.finished = false;
+        ROS_INFO("Done Waiting for 5 seconds");
       }
       break;
     default:
