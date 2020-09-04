@@ -12,8 +12,9 @@
 #include <geometry_msgs/Vector3.h>
 #include <tf/transform_datatypes.h>
 #include <airsim_ros_pkgs/VelCmd.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 
-Drone_Mission drone1("drone1");
+Drone_Mission drone1;
 
 geometry_msgs::Vector3 alt_output1;
 // ros::Publisher altitude1;
@@ -34,16 +35,18 @@ int main(int argc, char **argv)
   ros::NodeHandle n;
 // %EndTag(NODEHANDLE)%
 
-drone1.fix = n.subscribe("airsim_node/SimpleFlight/global_gps", 10, &drone1_gps_callback);
+drone1 = Drone_Mission("drone1", n);
 
-drone1.imu = n.subscribe("/airsim_node/SimpleFlight/imu/Imu", 10, &Drone_Mission::imuCallback, &drone1);
+drone1.fix = n.subscribe("airsim_node/drone1/global_gps", 10, &drone1_gps_callback);
 
-drone1.magnetic = n.subscribe("/airsim_node/SimpleFlight/magnetometer/Magnetometer", 10, &Drone_Mission::magneticCallback, &drone1);
+drone1.imu = n.subscribe("/airsim_node/drone1/imu/Imu", 10, &Drone_Mission::imuCallback, &drone1);
 
-drone1.odom = n.subscribe("/airsim_node/SimpleFlight/odom", 10, &Drone_Mission::odomCallback, &drone1);
+drone1.magnetic = n.subscribe("/airsim_node/drone1/magnetometer/Magnetometer", 10, &Drone_Mission::magneticCallback, &drone1);
+
+drone1.odom = n.subscribe("/airsim_node/drone1/odom", 10, &Drone_Mission::odomCallback, &drone1);
 
 // %Tag(PUBLISHER)%
-drone1.move_drone = n.advertise<airsim_ros_pkgs::VelCmd>("/airsim_node/SimpleFlight/vel_cmd_body_frame", 1);
+drone1.move_drone = n.advertise<airsim_ros_pkgs::VelCmd>("/airsim_node/drone1/vel_cmd_body_frame", 1);
 
 // drone1.move_drone2 = n.advertise<airsim_ros_pkgs::VelCmd>("/airsim_node/SimpleFlight/vel_cmd_world_frame", 1);
 
@@ -76,6 +79,16 @@ drone1.move_drone = n.advertise<airsim_ros_pkgs::VelCmd>("/airsim_node/SimpleFli
   }
 
   return 0;
+}
+
+
+double get_yaw_from_quat_msg(const geometry_msgs::Quaternion& quat_msg)
+{
+  tf2::Quaternion quat_tf;
+  double roll, pitch, yaw;
+  tf2::fromMsg(quat_msg, quat_tf);
+  tf2::Matrix3x3(quat_tf).getRPY(roll, pitch, yaw);
+  return yaw;
 }
 
 
@@ -147,6 +160,15 @@ void Drone_Mission::imuCallback(const sensor_msgs::ImuConstPtr& msg) {
 
 void Drone_Mission::odomCallback(const nav_msgs::OdometryConstPtr& msg) {
   subOdom = *msg;
+}
+
+
+void Drone_Mission::odomLocalCallback(const nav_msgs::OdometryConstPtr& msg) {
+  curr_odom_ = *msg;
+  curr_position_.x = curr_odom_.pose.pose.position.x;
+  curr_position_.y = curr_odom_.pose.pose.position.y;
+  curr_position_.z = curr_odom_.pose.pose.position.z;
+  curr_position_.yaw = get_yaw_from_quat_msg(curr_odom_.pose.pose.orientation);
 }
 
 
