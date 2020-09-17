@@ -1,131 +1,410 @@
 #include "ros/ros.h"
 #include "std_msgs/String.h"
+#include <sensor_msgs/Joy.h>
 #include <geometry_msgs/Twist.h>
-// #include <hector_uav_msgs/EnableMotors.h>
-#include <actionlib/client/simple_action_client.h>
+#include <sstream>
+#include <geographic_msgs/GeoPoint.h>
+#include <geographic_msgs/GeoPose.h>
 #include <cmath>
 #include "two_drones/hover_node.h"
-// #include <hector_uav_msgs/PoseAction.h>
-#include <nav_msgs/Odometry.h>
+#include <geometry_msgs/Vector3.h>
 #include <tf/transform_datatypes.h>
+#include "../include/two_drones/math_common.h"
+#include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_listener.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 
-// double roll, pitch, yaw;
-// double dist_x, dist_y, dist_theta;
-// ros::Publisher vel;
-// ros::Subscriber subOdom;
+#include "dji_sdk/dji_sdk.h"
 
-std::string POSE_NAME = "action/pose";
-// Called once when the goal completes
-void doneCb(const actionlib::SimpleClientGoalState& state,
-            const hector_uav_msgs::PoseResultConstPtr& result)
-{
-  ROS_INFO("Finished in state [%s]", state.toString().c_str());
-//   ROS_INFO("Answer: %s", result->status);
-  ros::shutdown();
-}
+Drone_Mission *drone1;
 
-// Called once when the goal becomes active
-void activeCb()
-{
-  ROS_INFO("Goal just went active");
-}
-
-// Called every time feedback is received for the goal
-void feedbackCb(const hector_uav_msgs::PoseFeedbackConstPtr& feedback)
-{
-  ROS_INFO("Got Feedback of action %f %f %f", feedback->current_pose.pose.position.x, feedback->current_pose.pose.position.y, feedback->current_pose.pose.position.z);
-}
-
-// void odom_callback(const nav_msgs::OdometryConstPtr& msg) {
-//   nav_msgs::Odometry odom = *msg;
-  // tf::Quaternion q(odom.pose.pose.orientation.x, odom.pose.pose.orientation.y, odom.pose.pose.orientation.z, odom.pose.pose.orientation.w);
-  // tf::Matrix3x3 m(q);
-  // m.getRPY(roll, pitch, yaw);
-  // dist_x = odom.pose.pose.position.x - 208599.559107;
-  // dist_y = odom.pose.pose.position.y - 960441.484417;
-  // dist_theta = atan2(dist_y, dist_x);
-// }
+geometry_msgs::Vector3 waypoint;
 
 int main(int argc, char **argv)
 {
-    // %Tag(INIT)%
-    ros::init(argc, argv, "takeoff_node");
-    // %EndTag(INIT)%
 
-    std::string ns = ros::this_node::getNamespace();
-    if(ns.length() > 1) {
-      ns = ns.substr(2, ns.length());
-      ROS_INFO("%s", ns.c_str());
-      ns += "/";
-    } else {
-      ns="";
-    }
-    ROS_INFO("Pose name: %s", (ns + POSE_NAME).c_str());
-    float Y_POS = 1.0;
-    float X_POS = 0.0;
-    float Z_POS = 4.0;
-    switch(argc) {
-      case 1:
-        break;
-      case 2:
-        X_POS = atof(argv[1]);
-        break;
-      case 3:
-        X_POS = atof(argv[1]);
-        Y_POS = atof(argv[2]);
-        break;
-      case 4:
-        X_POS = atof(argv[1]);
-        Y_POS = atof(argv[2]);
-        Z_POS = atof(argv[3]);
-        break;
-      default:
-        ROS_INFO("Invalid entry");
-        break;
-    }
+  // %Tag(INIT)%
+  ros::init(argc, argv, "takeoff_node");
+  // %EndTag(INIT)%
 
-    // %Tag(NODEHANDLE)%
-    ros::NodeHandle n;
-    // %EndTag(NODEHANDLE)%
+  // %Tag(NODEHANDLE)%
+  ros::NodeHandle n;
+  // %EndTag(NODEHANDLE)%
 
-    // create the action client
-    // true causes the client to spin its own thread
-    // actionlib::SimpleActionClient<hector_uav_msgs::TakeoffAction> takeoff_drone1_("action/takeoff", true);
-    actionlib::SimpleActionClient<hector_uav_msgs::PoseAction> pose_("/" + ns + POSE_NAME, true);
-    // subOdom = n.subscribe<nav_msgs::Odometry>("geonav_odom", 10, &odom_callback);
-    // vel = n.advertise<geometry_msgs::Twist>("cmd_vel", 1);
-    hector_uav_msgs::PoseActionFeedback pose_feedback;
-    ROS_INFO("Waiting for action server to start.");
-    // wait for the action server to start
-    pose_.waitForServer();
-    ROS_INFO("Action server started, sending goal.");
-    // send a goal to the action
-    hector_uav_msgs::PoseGoal pose_goal;
-    ROS_INFO("Current pose %f", pose_feedback.feedback.current_pose.pose.position.z);
-    pose_goal.target_pose = pose_feedback.feedback.current_pose;
-    pose_goal.target_pose.pose.position.x = X_POS;
-    pose_goal.target_pose.pose.position.y = Y_POS;
-    pose_goal.target_pose.pose.position.z = Z_POS;
-    ROS_INFO("%s", (ns + std::string("world")).c_str());
-    pose_goal.target_pose.header.frame_id = ns + "world";
-    pose_.sendGoal(pose_goal, &doneCb, &activeCb, &feedbackCb);
-    pose_.waitForResult(ros::Duration(30.0));
+  ros::AsyncSpinner spinner(2);
 
-    if (pose_.getState() == actionlib::SimpleClientGoalState::SUCCEEDED)
+  spinner.start();
+
+  drone1 = new Drone_Mission("frl_uas5", n);
+
+  drone1->fix = n.subscribe("frl_uas5/dji_sdk/gps_position", 10, &drone1_gps_callback);
+
+  // %EndTag(PUBLISHER)%
+
+  // %Tag(LOOP_RATE)%
+  ros::Rate loop_rate(10);
+  // %EndTag(LOOP_RATE)%
+
+  drone1->obtain_control_result = drone1->obtain_control();
+
+  if(drone1->is_M100())
+  {
+    ROS_INFO("M100 taking off!");
+    drone1->takeoff_result = drone1->M100monitoredTakeoff();
+  }
+  else
+  {
+    ROS_INFO("A3/N3 taking off!");
+    drone1->takeoff_result = drone1->monitoredTakeoff();
+  }
+
+  // %Tag(ROS_OK)%
+    static int count = 0;
+    while (ros::ok())
     {
-      actionlib::SimpleClientGoalState state = pose_.getState();
-      ROS_INFO("Action finished: %s",state.toString().c_str());
-      
-    }
-    else
-        ROS_INFO("Action did not finish before the time out."); 
+      ROS_INFO("Current state: %d", drone1->state);
+      if(ros::Time::now().toSec() > 20 && ros::Time::now().toSec() < 30 && count < 2) {
+        drone1->state = 1;
+        // drone1->setTarget()
+        ++count;
+        ROS_INFO("Trying to control now");
+      }  
 
-    // geometry_msgs::Twist speed;
-    // if(abs(dist_theta - yaw) > 0.1) {
-    //   speed.linear.x = 0.0;
-    //   speed.angular.z = 0.3;
-    //   vel.publish(speed);
-    // }
+    // %Tag(SPINONCE)%
+      // ros::spinOnce();
+    // %EndTag(SPINONCE)%
+
+    // %Tag(RATE_SLEEP)%
+      loop_rate.sleep();
+    // %EndTag(RATE_SLEEP)%
+    }
+
+  return 0;
+}
+// %EndTag(FULLTEXT)%
+
+
+double get_yaw_from_quat_msg(const geometry_msgs::Quaternion& quat_msg)
+{
+  tf2::Quaternion quat_tf;
+  double roll, pitch, yaw;
+  tf2::fromMsg(quat_msg, quat_tf);
+  tf2::Matrix3x3(quat_tf).getRPY(roll, pitch, yaw);
+  return yaw;
+}
+
+
+void step(Drone_Mission &drone) {
+  if(drone.finished != true) {
+    drone.compute_control_cmd();
+    drone.enforce_dynamic_constraints();
+    drone.move_drone.publish(drone.motor_msg);
+    drone.check_reached_goal();
+    if(drone.reached_goal_){
+      drone.finished = true;
+    }
+    // ROS_INFO("Trying to go to %f %f %f", drone.target.x, drone.target.y, drone.target.z);
+  }
+}
+
+
+// void Drone_Mission::magneticCallback(const sensor_msgs::MagneticField::ConstPtr& msg) {
+//   current_magnetic = *msg;
+// }
+
+void Drone_Mission::imuCallback(const sensor_msgs::ImuConstPtr& msg) {
+  sensor_msgs::Imu imu = *msg;
+  tf::Quaternion q(imu.orientation.x, imu.orientation.y, imu.orientation.z, imu.orientation.w);
+  tf::Matrix3x3 m(q);
+  m.getRPY(roll, pitch, yaw);
+}
+
+void Drone_Mission::odomCallback(const nav_msgs::OdometryConstPtr& msg) {
+  curr_odom_ = *msg;
+  curr_position_.x = curr_odom_.pose.pose.position.x;
+  curr_position_.y = curr_odom_.pose.pose.position.y;
+  curr_position_.z = curr_odom_.pose.pose.position.z;
+  curr_position_.yaw = get_yaw_from_quat_msg(curr_odom_.pose.pose.orientation);
   
-    return 0;
+}
+
+void Drone_Mission::compute_control_cmd()
+{
+    curr_error_.x = target.x - curr_position_.x;
+    curr_error_.y = target.y - curr_position_.y;
+    curr_error_.z = target.z - curr_position_.z;
+    curr_error_.yaw = math_common::angular_dist(curr_position_.yaw, target.yaw);
+
+    double p_term_x = kp_x * curr_error_.x;
+    double p_term_y = kp_y * curr_error_.y;
+    double p_term_z = kp_z * curr_error_.z;
+    double p_term_yaw = kp_yaw * curr_error_.yaw;
+
+    double d_term_x = kd_x * prev_error_.x;
+    double d_term_y = kd_y * prev_error_.y;
+    double d_term_z = kd_z * prev_error_.z;
+    double d_term_yaw = kp_yaw * prev_error_.yaw;
+
+    prev_error_ = curr_error_;
+
+    motor_msg.axes[0] = p_term_x + d_term_x;
+    motor_msg.axes[1] = p_term_y + d_term_y;
+    motor_msg.axes[2] = p_term_z + d_term_z;
+    motor_msg.axes[3] = p_term_yaw + d_term_yaw; // todo
+}
+
+void Drone_Mission::enforce_dynamic_constraints()
+{
+    double vel_norm_horz = sqrt((motor_msg.axes[0] * motor_msg.axes[0]) 
+                            + (motor_msg.axes[1] * motor_msg.axes[1]));
+
+    if (vel_norm_horz > max_vel_horz_abs)
+    {
+        motor_msg.axes[0] = (motor_msg.axes[0] / vel_norm_horz) * max_vel_horz_abs; 
+        motor_msg.axes[1] = (motor_msg.axes[1] / vel_norm_horz) * max_vel_horz_abs; 
+    }
+
+    if (std::fabs(motor_msg.axes[2]) > max_vel_vert_abs)
+    {
+        // todo just add a sgn funciton in common utils? return double to be safe. 
+        // template <typename T> double sgn(T val) { return (T(0) < val) - (val < T(0)); }
+        motor_msg.axes[2] = (motor_msg.axes[2] / std::fabs(motor_msg.axes[2])) * max_vel_vert_abs; 
+    }
+    // todo yaw limits
+    if (std::fabs(motor_msg.axes[2]) > max_yaw_rate_degree)
+    {
+        // todo just add a sgn funciton in common utils? return double to be safe. 
+        // template <typename T> double sgn(T val) { return (T(0) < val) - (val < T(0)); }
+        motor_msg.axes[2] = (motor_msg.axes[2] / std::fabs(motor_msg.axes[2])) * max_yaw_rate_degree;
+    }
+
+}
+
+void Drone_Mission::check_reached_goal()
+{
+    diff_xyz = sqrt((target.x - curr_position_.x) * (target.x - curr_position_.x) 
+                        + (target.y - curr_position_.y) * (target.y - curr_position_.y)
+                        + (target.z - curr_position_.z) * (target.z - curr_position_.z));
+
+    diff_yaw = math_common::angular_dist(target.yaw, curr_position_.yaw);
+
+    // todo save this in degrees somewhere to avoid repeated conversion
+    if (diff_xyz < reached_thresh_xyz && diff_yaw < math_common::deg2rad(reached_yaw_degrees))
+      reached_goal_ = true; 
+}
+
+void drone1_gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg) {
+  drone1->current_gps = *msg;
+  // utm_drone1->publish(current_drone1_utm);
+  static int count_1 = 0;
+  static double start_alt_1 = 0;
+  // static double start_magx = 0;
+  if(ros::Time::now().toSec() - drone1->time < 20) {
+    count_1 += 1;
+    start_alt_1 += drone1->current_gps.altitude;
+    drone1->mean_start_gps = start_alt_1/count_1;
+    ROS_INFO("Mean drone1 altitude %f %f %d", drone1->mean_start_gps, start_alt_1, count_1);
+  }
+  switch(drone1->state) {
+    case 0: 
+      break;
+    case 1:
+      if(drone1->finished == false) {
+        step(*drone1);
+      } else {
+        drone1->state = 2;
+        //drone1->setTarget(,,,); // drone1->target.x = -3;
+        // drone1->target.y = 4.5;
+        // drone1->target.z = -5;
+        drone1->reached_goal_ = false;
+        drone1->finished = false;
+        ROS_INFO("Done Hovering");
+      }
+      break;
+    case 2:
+      if(drone1->finished == false) {
+        drone1->finished = drone1->takeoff_land(6); //Landing
+      } else {
+        drone1->state = 0;
+        ROS_INFO("Done Landing");
+      }
+      break;
+    case 3:
+      if(drone1->finished == false) {
+        step(*drone1);
+      } else {
+        drone1->state = 2;
+        drone1->finished = false;
+        ROS_INFO("Done Moving");
+      }
+      break;
+  }
+}
+
+bool Drone_Mission::obtain_control()
+{
+  dji_sdk::SDKControlAuthority authority;
+  authority.request.control_enable=1;
+  sdk_ctrl_authority_service.call(authority);
+
+  if(!authority.response.result)
+  {
+    ROS_ERROR("obtain control failed!");
+    return false;
+  }
+
+  return true;
+}
+
+bool Drone_Mission::is_M100()
+{
+  dji_sdk::QueryDroneVersion query;
+  query_version_service.call(query);
+
+  if(query.response.version == DJISDK::DroneFirmwareVersion::M100_31)
+  {
+    return true;
+  }
+
+  return false;
+}
+
+bool Drone_Mission::monitoredTakeoff()
+{
+  ros::Time start_time = ros::Time::now();
+
+  if(!takeoff_land(dji_sdk::DroneTaskControl::Request::TASK_TAKEOFF)) {
+    return false;
+  }
+
+  ros::Duration(0.01).sleep();
+  ros::spinOnce();
+
+  // Step 1.1: Spin the motor
+  while (flight_status != DJISDK::FlightStatus::STATUS_ON_GROUND &&
+         display_mode != DJISDK::DisplayMode::MODE_ENGINE_START &&
+         ros::Time::now() - start_time < ros::Duration(5)) {
+    ros::Duration(0.01).sleep();
+    ros::spinOnce();
+  }
+
+  if(ros::Time::now() - start_time > ros::Duration(5)) {
+    ROS_ERROR("Takeoff failed. Motors are not spinnning.");
+    return false;
+  }
+  else {
+    start_time = ros::Time::now();
+    ROS_INFO("Motor Spinning ...");
+    ros::spinOnce();
+  }
+
+
+  // Step 1.2: Get in to the air
+  while (flight_status != DJISDK::FlightStatus::STATUS_IN_AIR &&
+          (display_mode != DJISDK::DisplayMode::MODE_ASSISTED_TAKEOFF || display_mode != DJISDK::DisplayMode::MODE_AUTO_TAKEOFF) &&
+          ros::Time::now() - start_time < ros::Duration(20)) {
+    ros::Duration(0.01).sleep();
+    ros::spinOnce();
+  }
+
+  if(ros::Time::now() - start_time > ros::Duration(20)) {
+    ROS_ERROR("Takeoff failed. Aircraft is still on the ground, but the motors are spinning.");
+    return false;
+  }
+  else {
+    start_time = ros::Time::now();
+    ROS_INFO("Ascending...");
+    ros::spinOnce();
+  }
+
+  // Final check: Finished takeoff
+  while ( (display_mode == DJISDK::DisplayMode::MODE_ASSISTED_TAKEOFF || display_mode == DJISDK::DisplayMode::MODE_AUTO_TAKEOFF) &&
+          ros::Time::now() - start_time < ros::Duration(20)) {
+    ros::Duration(0.01).sleep();
+    ros::spinOnce();
+  }
+
+  if ( display_mode != DJISDK::DisplayMode::MODE_P_GPS || display_mode != DJISDK::DisplayMode::MODE_ATTITUDE)
+  {
+    ROS_INFO("Successful takeoff!");
+    start_time = ros::Time::now();
+  }
+  else
+  {
+    ROS_ERROR("Takeoff finished, but the aircraft is in an unexpected mode. Please connect DJI GO.");
+    return false;
+  }
+
+  return true;
+}
+
+bool Drone_Mission::M100monitoredTakeoff()
+{
+  ros::Time start_time = ros::Time::now();
+
+  float home_altitude = current_gps.altitude;
+  if(!takeoff_land(dji_sdk::DroneTaskControl::Request::TASK_TAKEOFF))
+  {
+    return false;
+  }
+
+  ros::Duration(0.01).sleep();
+  ros::spinOnce();
+
+  // Step 1: If M100 is not in the air after 10 seconds, fail.
+  while (ros::Time::now() - start_time < ros::Duration(10))
+  {
+    ros::Duration(0.01).sleep();
+    ros::spinOnce();
+  }
+
+  if(flight_status != DJISDK::M100FlightStatus::M100_STATUS_IN_AIR ||
+      current_gps.altitude - home_altitude < 1.0)
+  {
+    ROS_ERROR("Takeoff failed.");
+    return false;
+  }
+  else
+  {
+    start_time = ros::Time::now();
+    ROS_INFO("Successful takeoff!");
+    ros::spinOnce();
+  }
+
+  return true;
+}
+
+void Drone_Mission::flight_status_callback(const std_msgs::UInt8::ConstPtr& msg)
+{
+  flight_status = msg->data;
+}
+
+void Drone_Mission::display_mode_callback(const std_msgs::UInt8::ConstPtr& msg)
+{
+  display_mode = msg->data;
+}
+
+bool Drone_Mission::takeoff_land(int task)
+{
+  dji_sdk::DroneTaskControl droneTaskControl;
+
+  droneTaskControl.request.task = task;
+
+  drone_task_service.call(droneTaskControl);
+
+  if(!droneTaskControl.response.result)
+  {
+    ROS_ERROR("takeoff_land fail");
+    return false;
+  }
+
+  return true;
+}
+
+void Drone_Mission::setTarget(float x, float y, float z, float yaw)
+{
+  target.x = x;
+  target.y = y;
+  target.z = z;
+  target.yaw = yaw;
 }

@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+
+<launch>
+    <group ns="frl_uas5">
+        <node name="odom_pub_node" type="odom_pub_node" pkg="two_drones" output="screen"/>
+
+        <node pkg="geonav_transform" type="geonav_transform_node" name="geonav_transform_node" clear_params="true">
+            <rosparam param="datum">[42.531, -71.090, 0.0]</rosparam>
+        </node>
+    </group>
+
+</launch>

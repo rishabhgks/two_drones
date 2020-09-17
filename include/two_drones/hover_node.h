@@ -14,11 +14,13 @@
 #include <std_msgs/UInt8.h>
 #include <nav_msgs/Odometry.h>
 #include <geometry_msgs/Vector3.h>
-#include <airsim_ros_pkgs/VelCmd.h>
-#include <airsim_ros_pkgs/Takeoff.h>
 #include <geometry_msgs/PointStamped.h>
-// #include <hector_uav_msgs/EnableMotors.h>
 
+#include <dji_sdk/DroneTaskControl.h>
+#include <dji_sdk/SDKControlAuthority.h>
+#include <dji_sdk/QueryDroneVersion.h>
+#include <dji_sdk/SetLocalPosRef.h>
+#include <dji_sdk/dji_sdk.h>
 
 #include <tf/tf.h>
 
@@ -85,8 +87,7 @@ public:
     sensor_msgs::NavSatFix current_gps;
     sensor_msgs::MagneticField current_magnetic;
     
-    airsim_ros_pkgs::VelCmd motor_msg;
-    airsim_ros_pkgs::VelCmd motor_msg2;
+    sensor_msgs::Joy motor_msg;
     
     ros::NodeHandle nh;
 
@@ -97,8 +98,22 @@ public:
     ros::Subscriber odom_local;
 
     ros::Publisher move_drone;
-    ros::Publisher move_drone2;
     ros::Publisher tester;
+
+    sensor_msgs::NavSatFix start_gps_location;
+    geometry_msgs::Point start_local_position;
+
+    ros::ServiceClient sdk_ctrl_authority_service; 
+    ros::ServiceClient drone_task_service;         
+    ros::ServiceClient query_version_service;      
+    ros::ServiceClient set_local_pos_reference;
+
+    uint8_t flight_status;
+    uint8_t display_mode; 
+
+    uint8_t flag; 
+    bool obtain_control_result;
+    bool takeoff_result;
 
     // void gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg);
 
@@ -128,12 +143,37 @@ public:
         diff_xyz = 1000;
         diff_yaw = 1000;
         reached_goal_ = false;
-        magnetic = nh.subscribe("/airsim_node/" + name + "/magnetometer/Magnetometer", 10, &Drone_Mission::magneticCallback, this);
-        imu = nh.subscribe("/airsim_node/" + name + "/imu/Imu", 10, &Drone_Mission::imuCallback, this);
-        odom = nh.subscribe("/airsim_node/" + name + "/odom", 10, &Drone_Mission::odomCallback, this);
-        odom_local = nh.subscribe("/airsim_node/" + name + "/odom_local_ned", 10, &Drone_Mission::odomLocalCallback, this);
-        move_drone = nh.advertise<airsim_ros_pkgs::VelCmd>("/airsim_node/" + name + "/vel_cmd_body_frame", 1);
+        // magnetic = nh.subscribe("/airsim_node/" + name + "/magnetometer/Magnetometer", 10, &Drone_Mission::magneticCallback, this);
+        imu = nh.subscribe("/frl_uas5/dji_sdk/imu", 10, &Drone_Mission::imuCallback, this);
+        odom = nh.subscribe(name + "/geonav_odom", 10, &Drone_Mission::odomCallback, this);
+        move_drone = nh.advertise<sensor_msgs::Joy>("/frl_uas5/dji_sdk/flight_control_setpoint_ENUvelocity_yawrate", 1);
         drone_frame = name + "/odom_local_ned";
+
+        // ros::Subscriber attitudeSub = nh.subscribe(name + "/dji_sdk/attitude", 10, &attitude_callback);
+        // ros::Subscriber gpsSub      = nh.subscribe(name + "/dji_sdk/gps_position", 10, &gps_callback);
+        // ros::Subscriber flightStatusSub = nh.subscribe(name + "/dji_sdk/flight_status", 10, &flight_status_callback);
+        // ros::Subscriber displayModeSub = nh.subscribe(name + "/dji_sdk/display_mode", 10, &display_mode_callback);
+        // ros::Subscriber localPosition = nh.subscribe(name + "/dji_sdk/local_position", 10, &local_position_callback);
+
+        ros::ServiceClient sdk_ctrl_authority_service = nh.serviceClient<dji_sdk::SDKControlAuthority> (name + "/dji_sdk/sdk_control_authority");
+        ros::ServiceClient drone_task_service         = nh.serviceClient<dji_sdk::DroneTaskControl>(name + "/dji_sdk/drone_task_control");
+        ros::ServiceClient query_version_service      = nh.serviceClient<dji_sdk::QueryDroneVersion>(name + "/dji_sdk/query_drone_version");
+        ros::ServiceClient set_local_pos_reference    = nh.serviceClient<dji_sdk::SetLocalPosRef> (name + "/dji_sdk/set_local_pos_ref");
+
+        flight_status = 255;
+        display_mode  = 255;
+
+        flag = (DJISDK::VERTICAL_VELOCITY   |
+                DJISDK::HORIZONTAL_VELOCITY |
+                DJISDK::YAW_RATE            |
+                DJISDK::HORIZONTAL_GROUND   |
+                DJISDK::STABLE_ENABLE);
+        motor_msg.axes.push_back(0);
+        motor_msg.axes.push_back(0);
+        motor_msg.axes.push_back(0);
+        motor_msg.axes.push_back(0);
+        motor_msg.axes.push_back(flag);  
+
         world_point.header.frame_id = name;
         world_point.header.stamp = ros::Time(0);
     }
@@ -141,11 +181,18 @@ public:
     void imuCallback(const sensor_msgs::ImuConstPtr& msg);
     void odomCallback(const nav_msgs::OdometryConstPtr& msg);
     void odomLocalCallback(const nav_msgs::OdometryConstPtr& msg);
-    void magneticCallback(const sensor_msgs::MagneticField::ConstPtr& msg);
-    bool takeOff(bool enable);
+    // void magneticCallback(const sensor_msgs::MagneticField::ConstPtr& msg);
     void compute_control_cmd();
     void enforce_dynamic_constraints();
     void check_reached_goal();
+    bool is_M100();
+    bool monitoredTakeoff();
+    bool M100monitoredTakeoff();
+    bool obtain_control();
+    void display_mode_callback(const std_msgs::UInt8::ConstPtr& msg);
+    void flight_status_callback(const std_msgs::UInt8::ConstPtr& msg);
+    bool takeoff_land(int task);
+    void setTarget(float x, float y, float z, float yaw);
 };
 
 // void drone1_imuCallback(const sensor_msgs::ImuConstPtr& msg);

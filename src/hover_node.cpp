@@ -9,17 +9,15 @@
 #include "two_drones/hover_node.h"
 #include <geometry_msgs/Vector3.h>
 #include <tf/transform_datatypes.h>
-#include <airsim_ros_pkgs/VelCmd.h>
-#include <math_common.h>
+#include "../include/two_drones/math_common.h"
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+#include <dji_sdk/dji_sdk.h>
 
 float globalTime = 0;
 float globalStartTime = 0;
 bool counter = false;
-
-tf2_ros::Buffer tfBuffer;
 
 Drone_Mission *drone1;
 Drone_Mission *drone2;
@@ -45,8 +43,6 @@ int main(int argc, char **argv)
   drone1 = new Drone_Mission("drone1", n);
   drone2 = new Drone_Mission("drone2", n);
   drone3 = new Drone_Mission("drone3", n);
-
-  tf2_ros::TransformListener tfListener(tfBuffer);
 
   drone1->fix = n.subscribe("airsim_node/drone1/global_gps", 10, &drone1_gps_callback);
   drone2->fix = n.subscribe("airsim_node/drone2/global_gps", 10, &drone2_gps_callback);
@@ -95,14 +91,14 @@ int main(int argc, char **argv)
 // %EndTag(FULLTEXT)%
 
 
-void transform_world_to_local(Drone_Mission &drone) 
-{
-  drone.local_point = tfBuffer.transform(drone.world_point, drone.drone_frame);
-  drone.target.x = drone.local_point.point.x;
-  drone.target.y = drone.local_point.point.y;
-  drone.target.z = drone.local_point.point.z;
-  ROS_INFO("Target set as : %f %f %f", drone.target.x, drone.target.y, drone.target.z);
-}
+// void transform_world_to_local(Drone_Mission &drone) 
+// {
+//   drone.local_point = tfBuffer.transform(drone.world_point, drone.drone_frame);
+//   drone.target.x = drone.local_point.point.x;
+//   drone.target.y = drone.local_point.point.y;
+//   drone.target.z = drone.local_point.point.z;
+//   ROS_INFO("Target set as : %f %f %f", drone.target.x, drone.target.y, drone.target.z);
+// }
 
 
 double get_yaw_from_quat_msg(const geometry_msgs::Quaternion& quat_msg)
@@ -118,138 +114,138 @@ double get_yaw_from_quat_msg(const geometry_msgs::Quaternion& quat_msg)
 void step(Drone_Mission &drone) {
   // ros::Rate r(0.2);
     // r.sleep();
-  if(drone.state == 1 && drone.finished != true) {
-    if(drone.current_gps.altitude - drone.mean_start_gps < 5.8) {
-      if(drone.current_gps.altitude - drone.mean_start_gps > 5.75)
-        drone.motor_msg.twist.linear.z = -0.3;
-      else
-        drone.motor_msg.twist.linear.z = -0.6;
-      drone.motor_msg.twist.angular.z = 0.0;
-      drone.move_drone.publish(drone.motor_msg);
-    } else {
-      drone.motor_msg.twist.linear.z = 0.3;
-      drone.motor_msg.twist.angular.z = 0.0;
-      drone.move_drone.publish(drone.motor_msg);  
-    }
-    if(ros::Time::now().toSec() - drone.time > 40) {
-      drone.finished = true;
-    }
-    // ROS_INFO("Orig: %f  Modified: %f", drone.current_gps.altitude, drone.current_gps.altitude - drone.mean_start_gps);
-  }
-  if(drone.state == 2 && drone.finished != true) {
-    if(drone.current_gps.altitude - drone.mean_start_gps > 0.05){
-      drone.motor_msg.twist.linear.x = 0.0;
-      drone.motor_msg.twist.linear.z = 0.6;
-      drone.motor_msg.twist.angular.z = 0.0;
-      drone.move_drone.publish(drone.motor_msg);  
-    } else {
-      drone.finished = true;
-    }
-    // if(ros::Time::now().toSec() - drone.time > 90) {
-    //   drone.finished = true;
-    // }
-  }
-  if(drone.state == 3 && drone.finished != true) {
-    drone.motor_msg.twist.linear.x = 1.0;
-    drone.motor_msg.twist.linear.z = 0.0;
-    drone.motor_msg.twist.angular.z = 0.0;
-    drone.move_drone.publish(drone.motor_msg);
-    if(ros::Time::now().toSec() - drone.time > 60) {
-      drone.finished = true;
-    }
-  }
-  // if(drone.state == 4 && drone.finished != true) {
-  //   drone.takeOff(true);
-  //   drone.finished = true;
+  // if(drone.state == 1 && drone.finished != true) {
+  //   if(drone.current_gps.altitude - drone.mean_start_gps < 5.8) {
+  //     if(drone.current_gps.altitude - drone.mean_start_gps > 5.75)
+  //       drone.motor_msg.twist.linear.z = -0.3;
+  //     else
+  //       drone.motor_msg.twist.linear.z = -0.6;
+  //     drone.motor_msg.twist.angular.z = 0.0;
+  //     drone.move_drone.publish(drone.motor_msg);
+  //   } else {
+  //     drone.motor_msg.twist.linear.z = 0.3;
+  //     drone.motor_msg.twist.angular.z = 0.0;
+  //     drone.move_drone.publish(drone.motor_msg);  
+  //   }
+  //   if(ros::Time::now().toSec() - drone.time > 40) {
+  //     drone.finished = true;
+  //   }
+  //   // ROS_INFO("Orig: %f  Modified: %f", drone.current_gps.altitude, drone.current_gps.altitude - drone.mean_start_gps);
   // }
-  if(drone.state == 5 && drone.finished != true) {
-    // drone.target.x = 2.0;
-    // drone.target.y = 2.0;
-    // drone.target.z = -2.0;
-    // drone.target.yaw = 0.0;
-    drone.compute_control_cmd();
-    drone.enforce_dynamic_constraints();
-    drone.move_drone.publish(drone.motor_msg);
-    drone.check_reached_goal();
-    if(drone.reached_goal_){
-      drone.timer = ros::Time::now().toSec();
-      drone.finished = true;
-    }
-    // ROS_INFO("Trying to go to %f %f %f", drone.target.x, drone.target.y, drone.target.z);
-  }
-  if(drone.state == 6 && drone.finished != true) {
-    drone.compute_control_cmd();
-    drone.enforce_dynamic_constraints();
-    drone.move_drone.publish(drone.motor_msg);
-    drone.check_reached_goal();
-    if(drone.reached_goal_){
-      drone.timer = ros::Time::now().toSec();
-      drone.finished = true;
-    }
-  }
-  if(drone.state == 7 && drone.finished != true) {
-    if(drone.current_gps.altitude - drone.mean_start_gps < 5.5) {
-      if(drone.current_gps.altitude - drone.mean_start_gps > 5.45)
-        drone.motor_msg.twist.linear.z = -0.3;
-      else
-        drone.motor_msg.twist.linear.z = -0.6;
-      drone.motor_msg.twist.angular.z = 0.0;
-      drone.move_drone.publish(drone.motor_msg);
-    } else {
-      drone.motor_msg.twist.linear.z = 0.3;
-      drone.motor_msg.twist.angular.z = 0.0;
-      drone.move_drone.publish(drone.motor_msg);  
-    }
-    if((drone.counter == 1) && ((globalTime - globalStartTime) > 5)) {
-      drone3->state = 9;
-      if(drone3->counter == 1) {
-        drone.finished = true;
-        drone.counter = 0;
-      }
-      ROS_INFO("Time DIff: %f", (globalTime - globalStartTime));
-    }
-  }
-  if(drone.state == 8 && drone.finished != true) {
-    if(drone.current_gps.altitude - drone.mean_start_gps < 5.5) {
-      if(drone.current_gps.altitude - drone.mean_start_gps > 5.45)
-        drone.motor_msg.twist.linear.z = -0.3;
-      else
-        drone.motor_msg.twist.linear.z = -0.6;
-      drone.motor_msg.twist.angular.z = 0.0;
-      drone.move_drone.publish(drone.motor_msg);
-    } else {
-      drone.motor_msg.twist.linear.z = 0.3;
-      drone.motor_msg.twist.angular.z = 0.0;
-      drone.move_drone.publish(drone.motor_msg);  
-    }
-    if((drone.counter == 1) && ((globalTime - globalStartTime) > 5)) {
-      drone.finished = true;
-      drone.counter = 0;
-      ROS_INFO("Time DIff: %f", (globalTime - globalStartTime));
-    }
-  }
-  if(drone.state == 9 && !drone.finished) {
-    if(drone.current_gps.altitude - drone.mean_start_gps < 5.8) {
-      if(drone.current_gps.altitude - drone.mean_start_gps > 5.75)
-        drone.motor_msg.twist.linear.z = -0.3;
-      else
-        drone.motor_msg.twist.linear.z = -0.8;
-      drone.motor_msg.twist.angular.z = 0.0;
-      drone.move_drone.publish(drone.motor_msg);
-    } else {
-      drone.motor_msg.twist.linear.z = 0.3;
-      drone.motor_msg.twist.angular.z = 0.0;
-      drone.move_drone.publish(drone.motor_msg);  
-      drone.counter = 1;
-      ROS_INFO("Drone 3 Reached higher than 4.8 altitude");
-    }
-  }
+  // if(drone.state == 2 && drone.finished != true) {
+  //   if(drone.current_gps.altitude - drone.mean_start_gps > 0.05){
+  //     drone.motor_msg.twist.linear.x = 0.0;
+  //     drone.motor_msg.twist.linear.z = 0.6;
+  //     drone.motor_msg.twist.angular.z = 0.0;
+  //     drone.move_drone.publish(drone.motor_msg);  
+  //   } else {
+  //     drone.finished = true;
+  //   }
+  //   // if(ros::Time::now().toSec() - drone.time > 90) {
+  //   //   drone.finished = true;
+  //   // }
+  // }
+  // if(drone.state == 3 && drone.finished != true) {
+  //   drone.motor_msg.twist.linear.x = 1.0;
+  //   drone.motor_msg.twist.linear.z = 0.0;
+  //   drone.motor_msg.twist.angular.z = 0.0;
+  //   drone.move_drone.publish(drone.motor_msg);
+  //   if(ros::Time::now().toSec() - drone.time > 60) {
+  //     drone.finished = true;
+  //   }
+  // }
+  // // if(drone.state == 4 && drone.finished != true) {
+  // //   drone.takeOff(true);
+  // //   drone.finished = true;
+  // // }
+  // if(drone.state == 5 && drone.finished != true) {
+  //   // drone.target.x = 2.0;
+  //   // drone.target.y = 2.0;
+  //   // drone.target.z = -2.0;
+  //   // drone.target.yaw = 0.0;
+  //   drone.compute_control_cmd();
+  //   drone.enforce_dynamic_constraints();
+  //   drone.move_drone.publish(drone.motor_msg);
+  //   drone.check_reached_goal();
+  //   if(drone.reached_goal_){
+  //     drone.timer = ros::Time::now().toSec();
+  //     drone.finished = true;
+  //   }
+  //   // ROS_INFO("Trying to go to %f %f %f", drone.target.x, drone.target.y, drone.target.z);
+  // }
+  // if(drone.state == 6 && drone.finished != true) {
+  //   drone.compute_control_cmd();
+  //   drone.enforce_dynamic_constraints();
+  //   drone.move_drone.publish(drone.motor_msg);
+  //   drone.check_reached_goal();
+  //   if(drone.reached_goal_){
+  //     drone.timer = ros::Time::now().toSec();
+  //     drone.finished = true;
+  //   }
+  // }
+  // if(drone.state == 7 && drone.finished != true) {
+  //   if(drone.current_gps.altitude - drone.mean_start_gps < 5.5) {
+  //     if(drone.current_gps.altitude - drone.mean_start_gps > 5.45)
+  //       drone.motor_msg.twist.linear.z = -0.3;
+  //     else
+  //       drone.motor_msg.twist.linear.z = -0.6;
+  //     drone.motor_msg.twist.angular.z = 0.0;
+  //     drone.move_drone.publish(drone.motor_msg);
+  //   } else {
+  //     drone.motor_msg.twist.linear.z = 0.3;
+  //     drone.motor_msg.twist.angular.z = 0.0;
+  //     drone.move_drone.publish(drone.motor_msg);  
+  //   }
+  //   if((drone.counter == 1) && ((globalTime - globalStartTime) > 5)) {
+  //     drone3->state = 9;
+  //     if(drone3->counter == 1) {
+  //       drone.finished = true;
+  //       drone.counter = 0;
+  //     }
+  //     ROS_INFO("Time DIff: %f", (globalTime - globalStartTime));
+  //   }
+  // }
+  // if(drone.state == 8 && drone.finished != true) {
+  //   if(drone.current_gps.altitude - drone.mean_start_gps < 5.5) {
+  //     if(drone.current_gps.altitude - drone.mean_start_gps > 5.45)
+  //       drone.motor_msg.twist.linear.z = -0.3;
+  //     else
+  //       drone.motor_msg.twist.linear.z = -0.6;
+  //     drone.motor_msg.twist.angular.z = 0.0;
+  //     drone.move_drone.publish(drone.motor_msg);
+  //   } else {
+  //     drone.motor_msg.twist.linear.z = 0.3;
+  //     drone.motor_msg.twist.angular.z = 0.0;
+  //     drone.move_drone.publish(drone.motor_msg);  
+  //   }
+  //   if((drone.counter == 1) && ((globalTime - globalStartTime) > 5)) {
+  //     drone.finished = true;
+  //     drone.counter = 0;
+  //     ROS_INFO("Time DIff: %f", (globalTime - globalStartTime));
+  //   }
+  // }
+  // if(drone.state == 9 && !drone.finished) {
+  //   if(drone.current_gps.altitude - drone.mean_start_gps < 5.8) {
+  //     if(drone.current_gps.altitude - drone.mean_start_gps > 5.75)
+  //       drone.motor_msg.twist.linear.z = -0.3;
+  //     else
+  //       drone.motor_msg.twist.linear.z = -0.8;
+  //     drone.motor_msg.twist.angular.z = 0.0;
+  //     drone.move_drone.publish(drone.motor_msg);
+  //   } else {
+  //     drone.motor_msg.twist.linear.z = 0.3;
+  //     drone.motor_msg.twist.angular.z = 0.0;
+  //     drone.move_drone.publish(drone.motor_msg);  
+  //     drone.counter = 1;
+  //     ROS_INFO("Drone 3 Reached higher than 4.8 altitude");
+  //   }
+  // }
 }
 
 
-void Drone_Mission::magneticCallback(const sensor_msgs::MagneticField::ConstPtr& msg) {
-  current_magnetic = *msg;
-}
+// void Drone_Mission::magneticCallback(const sensor_msgs::MagneticField::ConstPtr& msg) {
+//   current_magnetic = *msg;
+// }
 
 void Drone_Mission::imuCallback(const sensor_msgs::ImuConstPtr& msg) {
   sensor_msgs::Imu imu = *msg;
@@ -300,35 +296,35 @@ void Drone_Mission::compute_control_cmd()
 
     prev_error_ = curr_error_;
 
-    motor_msg.twist.linear.x = p_term_x + d_term_x;
-    motor_msg.twist.linear.y = p_term_y + d_term_y;
-    motor_msg.twist.linear.z = p_term_z + d_term_z;
-    motor_msg.twist.angular.z = p_term_yaw + d_term_yaw; // todo
+    motor_msg.axes[0] = p_term_x + d_term_x;
+    motor_msg.axes[1] = p_term_y + d_term_y;
+    motor_msg.axes[2] = p_term_z + d_term_z;
+    motor_msg.axes[3] = p_term_yaw + d_term_yaw; // todo
 }
 
 void Drone_Mission::enforce_dynamic_constraints()
 {
-    double vel_norm_horz = sqrt((motor_msg.twist.linear.x * motor_msg.twist.linear.x) 
-                            + (motor_msg.twist.linear.y * motor_msg.twist.linear.y));
+    double vel_norm_horz = sqrt((motor_msg.axes[0] * motor_msg.axes[0]) 
+                            + (motor_msg.axes[1] * motor_msg.axes[1]));
 
     if (vel_norm_horz > max_vel_horz_abs)
     {
-        motor_msg.twist.linear.x = (motor_msg.twist.linear.x / vel_norm_horz) * max_vel_horz_abs; 
-        motor_msg.twist.linear.y = (motor_msg.twist.linear.y / vel_norm_horz) * max_vel_horz_abs; 
+        motor_msg.axes[0] = (motor_msg.axes[0] / vel_norm_horz) * max_vel_horz_abs; 
+        motor_msg.axes[1] = (motor_msg.axes[1] / vel_norm_horz) * max_vel_horz_abs; 
     }
 
-    if (std::fabs(motor_msg.twist.linear.z) > max_vel_vert_abs)
+    if (std::fabs(motor_msg.axes[2]) > max_vel_vert_abs)
     {
         // todo just add a sgn funciton in common utils? return double to be safe. 
         // template <typename T> double sgn(T val) { return (T(0) < val) - (val < T(0)); }
-        motor_msg.twist.linear.z = (motor_msg.twist.linear.z / std::fabs(motor_msg.twist.linear.z)) * max_vel_vert_abs; 
+        motor_msg.axes[2] = (motor_msg.axes[2] / std::fabs(motor_msg.axes[2])) * max_vel_vert_abs; 
     }
     // todo yaw limits
-    if (std::fabs(motor_msg.twist.linear.z) > max_yaw_rate_degree)
+    if (std::fabs(motor_msg.axes[2]) > max_yaw_rate_degree)
     {
         // todo just add a sgn funciton in common utils? return double to be safe. 
         // template <typename T> double sgn(T val) { return (T(0) < val) - (val < T(0)); }
-        motor_msg.twist.linear.z = (motor_msg.twist.linear.z / std::fabs(motor_msg.twist.linear.z)) * max_yaw_rate_degree;
+        motor_msg.axes[2] = (motor_msg.axes[2] / std::fabs(motor_msg.axes[2])) * max_yaw_rate_degree;
     }
 
 }
