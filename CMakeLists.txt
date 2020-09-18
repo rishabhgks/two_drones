@@ -53,6 +53,14 @@ target_link_libraries(hover_node
   ${DJIOSDK_LIBRARIES}
 )
 
+add_executable(odom_pub_node src/odom_pub_node.cpp)
+
+add_dependencies(odom_pub_node ${catkin_EXPORTED_TARGETS})
+
+target_link_libraries(odom_pub_node
+  ${catkin_LIBRARIES}
+)
+
 # add_executable(test_node src/test_node.cpp)
 
 # target_link_libraries(test_node

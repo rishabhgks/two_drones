@@ -351,7 +351,7 @@ void drone1_gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg) {
   if(ros::Time::now().toSec() - drone1->time < 10) {
     count_1 += 1;
     start_alt_1 += drone1->current_gps.altitude;
-    drone1->mean_start_gps = start_alt_1/count_1;
+    drone1->mean_start_gps_alt = start_alt_1/count_1;
     // ROS_INFO("Mean drone1 altitude %f %f %d", drone1->mean_start_gps, start_alt_1, count_1);
   }
   switch(drone1->state) {
@@ -462,7 +462,7 @@ void drone2_gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg) {
   if(ros::Time::now().toSec() - drone2->time < 10) {
     count_1 += 1;
     start_alt_1 += drone2->current_gps.altitude;
-    drone2->mean_start_gps = start_alt_1/count_1;
+    drone2->mean_start_gps_alt = start_alt_1/count_1;
     // ROS_INFO("Mean drone2 altitude %f %f %d", drone2->mean_start_gps, start_alt_1, count_1);
   }
   switch(drone2->state) {
@@ -568,7 +568,7 @@ void drone3_gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg) {
   if(ros::Time::now().toSec() - drone3->time < 10) {
     count_3 += 1;
     start_alt_3 += drone3->current_gps.altitude;
-    drone3->mean_start_gps = start_alt_3/count_3;
+    drone3->mean_start_gps_alt = start_alt_3/count_3;
   }
   switch(drone3->state) {
     case 0:

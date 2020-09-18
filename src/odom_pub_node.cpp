@@ -27,9 +27,9 @@ int main(int argc, char **argv)
 // %EndTag(PUBLISHER)%
 
 // %Tag(SUBSCRIBER)%
-  ros::Subscriber gps = n.subscribe<sensor_msgs::NavSatFix>("dji_sdk/gps_position", 10, gps_callback());
+  ros::Subscriber gps = n.subscribe<sensor_msgs::NavSatFix>("dji_sdk/gps_position", 10, gps_callback);
 
-  ros::Subscriber imu = n.subscribe<sensor_msgs::Imu>("dji_sdk/imu", 10, imu_callback());
+  ros::Subscriber imu = n.subscribe<sensor_msgs::Imu>("dji_sdk/imu", 10, imu_callback);
 // %EndTag(SUBSCRIBER)%
 
   nav_msgs::Odometry odom_msg;
