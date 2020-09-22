@@ -150,19 +150,13 @@ public:
         // magnetic = nh.subscribe("/airsim_node/" + name + "/magnetometer/Magnetometer", 10, &Drone_Mission::magneticCallback, this);
         imu = nh.subscribe("/frl_uas5/dji_sdk/imu", 10, &Drone_Mission::imuCallback, this);
         odom = nh.subscribe(name + "/geonav_odom", 10, &Drone_Mission::odomCallback, this);
-        move_drone = nh.advertise<sensor_msgs::Joy>("/frl_uas5/dji_sdk/flight_control_setpoint_ENUvelocity_yawrate", 1);
+        move_drone = nh.advertise<sensor_msgs::Joy>(name + "/dji_sdk/flight_control_setpoint_ENUvelocity_yawrate", 1);
         drone_frame = name + "/odom_local_ned";
 
-        // ros::Subscriber attitudeSub = nh.subscribe(name + "/dji_sdk/attitude", 10, &attitude_callback);
-        // ros::Subscriber gpsSub      = nh.subscribe(name + "/dji_sdk/gps_position", 10, &gps_callback);
-        // ros::Subscriber flightStatusSub = nh.subscribe(name + "/dji_sdk/flight_status", 10, &flight_status_callback);
-        // ros::Subscriber displayModeSub = nh.subscribe(name + "/dji_sdk/display_mode", 10, &display_mode_callback);
-        // ros::Subscriber localPosition = nh.subscribe(name + "/dji_sdk/local_position", 10, &local_position_callback);
-
-        sdk_ctrl_authority_service = nh.serviceClient<dji_sdk::SDKControlAuthority> ("/" + name + "/dji_sdk/sdk_control_authority");
-        drone_task_service         = nh.serviceClient<dji_sdk::DroneTaskControl>("/" + name + "/dji_sdk/drone_task_control");
-        query_version_service      = nh.serviceClient<dji_sdk::QueryDroneVersion>("/" + name + "/dji_sdk/query_drone_version");
-        set_local_pos_reference    = nh.serviceClient<dji_sdk::SetLocalPosRef> ("/" + name + "/dji_sdk/set_local_pos_ref");
+        sdk_ctrl_authority_service = nh.serviceClient<dji_sdk::SDKControlAuthority> (name + "/dji_sdk/sdk_control_authority");
+        drone_task_service         = nh.serviceClient<dji_sdk::DroneTaskControl>(name + "/dji_sdk/drone_task_control");
+        query_version_service      = nh.serviceClient<dji_sdk::QueryDroneVersion>(name + "/dji_sdk/query_drone_version");
+        set_local_pos_reference    = nh.serviceClient<dji_sdk::SetLocalPosRef> (name + "/dji_sdk/set_local_pos_ref");
 
         flight_status = 255;
         display_mode  = 255;

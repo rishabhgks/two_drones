@@ -56,6 +56,7 @@ int main(int argc, char **argv)
   {
     ROS_INFO("M100 taking off!");
     drone1->takeoff_result = drone1->M100monitoredTakeoff();
+    // drone1->finished = drone1->takeoff_land(6);
   }
   else
   {
@@ -224,7 +225,7 @@ void drone1_gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg) {
         step(*drone1);
       } else {
         drone1->state = 3;
-        drone1->setTarget(drone1->mean_start_gps_x - 10, drone1->mean_start_gps_y, 4.0, 0.0); // drone1->target.x = -3;
+        drone1->setTarget(drone1->mean_start_gps_x - 2, drone1->mean_start_gps_y, 4.0, 0.0); // drone1->target.x = -3;
         // drone1->target.y = 4.5;
         // drone1->target.z = -5;
         drone1->reached_goal_ = false;
@@ -246,7 +247,7 @@ void drone1_gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg) {
         step(*drone1);
       } else {
         drone1->state = 4;
-        drone1->setTarget(drone1->mean_start_gps_x - 10, drone1->mean_start_gps_y - 10, 4.0, 0.0);
+        drone1->setTarget(drone1->mean_start_gps_x - 2, drone1->mean_start_gps_y - 2, 4.0, 0.0);
         drone1->reached_goal_ = false;
         drone1->finished = false;
         ROS_INFO("Done with route 2");
@@ -257,7 +258,7 @@ void drone1_gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg) {
         step(*drone1);
       } else {
         drone1->state = 5;
-        drone1->setTarget(drone1->mean_start_gps_x, drone1->mean_start_gps_y - 10, 4.0, 0.0);
+        drone1->setTarget(drone1->mean_start_gps_x, drone1->mean_start_gps_y - 2, 4.0, 0.0);
         drone1->reached_goal_ = false;
         drone1->finished = false;
         ROS_INFO("Done with route 3");

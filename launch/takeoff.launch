@@ -1,3 +1,5 @@
 <launch>
-  <node name="takeoff_node" pkg="two_drones" type="takeoff_node" output="screen" />
+  <include file="$(find two_drones)/launch/geonav_node.launch"/>
+
+  <node name="takeoff_node" pkg="two_drones" type="takeoff_node" output="screen" launch-prefix="bash -c 'sleep 5; $0 $@' "/>
 </launch>
