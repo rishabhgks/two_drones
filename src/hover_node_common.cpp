@@ -42,13 +42,13 @@ int main(int argc, char **argv)
 
   drone1 = new Drone_Mission("frl_uas5", n);
 
-  drone2 = new Drone_Mission("frl_uas6", n);
+  drone2 = new Drone_Mission("frl_uas1", n);
 
   drone1->time = drone2->time = ros::Time::now().toSec();
 
   drone1->fix = n.subscribe("frl_uas5/dji_sdk/gps_position", 10, &drone1_gps_callback);
 
-  drone2->fix = n.subscribe("frl_uas6/dji_sdk/gps_position", 10, &drone2_gps_callback);
+  drone2->fix = n.subscribe("frl_uas1/dji_sdk/gps_position", 10, &drone2_gps_callback);
 
   // %EndTag(PUBLISHER)%
 
@@ -221,22 +221,104 @@ void Drone_Mission::check_reached_goal()
 }
 
 void drone1_gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg) {
-  drone1->current_gps = *msg;
-  // utm_drone1->publish(current_drone1_utm);
+  drone2->current_gps = *msg;
+  // utm_drone2->publish(current_drone1_utm);
   static int count_2 = 0;
   static double start_alt_2 = 0;
   static double start_x_2 = 0;
   static double start_y_2 = 0;
   // static double start_magx = 0;
-  if((ros::Time::now().toSec() - drone1->time) < 20 && (ros::Time::now().toSec() - drone1->time) > 0) {
+  if((ros::Time::now().toSec() - drone2->time) < 20) {
     count_2 += 1;
-    start_alt_2 += drone1->current_gps.altitude;
-    start_x_2 += drone1->curr_odom_.pose.pose.position.x;
-    start_y_2 += drone1->curr_odom_.pose.pose.position.y;
-    drone1->mean_start_gps_alt = start_alt_2/count_2;
-    drone1->mean_start_gps_x = start_x_2/count_2;
-    drone1->mean_start_gps_y = start_y_2/count_2;
-    // ROS_INFO("Mean drone1 altitude %f %f %d", drone1->mean_start_gps, start_alt_2, count_2);
+    start_alt_2 += drone2->current_gps.altitude;
+    start_x_2 += drone2->curr_odom_.pose.pose.position.x;
+    start_y_2 += drone2->curr_odom_.pose.pose.position.y;
+    drone2->mean_start_gps_alt = start_alt_2/count_2;
+    drone2->mean_start_gps_x = start_x_2/count_2;
+    drone2->mean_start_gps_y = start_y_2/count_2;
+    // ROS_INFO("Mean drone1 altitude %f %f %d", drone2->mean_start_gps, start_alt_2, count_2);
+  }
+  switch(drone2->state) {
+    case 0: 
+      break;
+    case 1:
+      if(drone2->finished == false) {
+        step(*drone1);
+      } else {
+        drone2->state = 3;
+        drone2->setTarget(drone2->mean_start_gps_x - 2, drone2->mean_start_gps_y, 4.0, 0.0); // drone2->target.x = -3;
+        // drone2->target.y = 4.5;
+        // drone2->target.z = -5;
+        drone2->reached_goal_ = false;
+        drone2->finished = false;
+        ROS_INFO("Done with route 1");
+      }
+      break;
+    case 2:
+      if(drone2->finished == false) {
+        step(*drone1);
+      } else {
+        drone2->finished = drone2->takeoff_land(6); //Landing
+        drone2->state = 0;
+        ROS_INFO("Done Landing");
+      }
+      break;
+    case 3:
+      if(drone2->finished == false) {
+        step(*drone1);
+      } else {
+        drone2->state = 4;
+        drone2->setTarget(drone2->mean_start_gps_x - 2, drone2->mean_start_gps_y - 2, 4.0, 0.0);
+        drone2->reached_goal_ = false;
+        drone2->finished = false;
+        ROS_INFO("Done with route 2");
+      }
+      break;
+    case 4:
+      if(drone2->finished == false) {
+        step(*drone1);
+      } else {
+        drone2->state = 5;
+        drone2->setTarget(drone2->mean_start_gps_x, drone2->mean_start_gps_y - 2, 4.0, 0.0);
+        drone2->reached_goal_ = false;
+        drone2->finished = false;
+        ROS_INFO("Done with route 3");
+      }
+      break;
+    case 5:
+      if(drone2->finished == false) {
+        step(*drone1);
+      } else {
+        drone2->state = 2;
+        drone2->setTarget(drone2->mean_start_gps_x, drone2->mean_start_gps_y, 4.0, 0.0);
+        drone2->reached_goal_ = false;
+        drone2->finished = false;
+        ROS_INFO("Done with route 4");
+      }
+      break;
+    default:
+      ROS_INFO("Invalid State");
+      break;
+  }
+}
+
+void drone2_gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg) {
+  drone1->current_gps = *msg;
+  // utm_drone1->publish(current_drone1_utm);
+  static int count_1 = 0;
+  static double start_alt_1 = 0;
+  static double start_x_1 = 0;
+  static double start_y_1 = 0;
+  // static double start_magx = 0;
+  if((ros::Time::now().toSec() - drone1->time) < 20) {
+    count_1 += 1;
+    start_alt_1 += drone1->current_gps.altitude;
+    start_x_1 += drone1->curr_odom_.pose.pose.position.x;
+    start_y_1 += drone1->curr_odom_.pose.pose.position.y;
+    drone1->mean_start_gps_alt = start_alt_1/count_1;
+    drone1->mean_start_gps_x = start_x_1/count_1;
+    drone1->mean_start_gps_y = start_y_1/count_1;
+    // ROS_INFO("Mean drone1 altitude %f %f %d", drone1->mean_start_gps, start_alt_1, count_1);
   }
   switch(drone1->state) {
     case 0: 
@@ -293,88 +375,6 @@ void drone1_gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg) {
         drone1->setTarget(drone1->mean_start_gps_x, drone1->mean_start_gps_y, 4.0, 0.0);
         drone1->reached_goal_ = false;
         drone1->finished = false;
-        ROS_INFO("Done with route 4");
-      }
-      break;
-    default:
-      ROS_INFO("Invalid State");
-      break;
-  }
-}
-
-void drone2_gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg) {
-  drone2->current_gps = *msg;
-  // utm_drone2->publish(current_drone1_utm);
-  static int count_1 = 0;
-  static double start_alt_1 = 0;
-  static double start_x_1 = 0;
-  static double start_y_1 = 0;
-  // static double start_magx = 0;
-  if((ros::Time::now().toSec() - drone2->time) < 20 && (ros::Time::now().toSec() - drone2->time) > 0) {
-    count_1 += 1;
-    start_alt_1 += drone2->current_gps.altitude;
-    start_x_1 += drone2->curr_odom_.pose.pose.position.x;
-    start_y_1 += drone2->curr_odom_.pose.pose.position.y;
-    drone2->mean_start_gps_alt = start_alt_1/count_1;
-    drone2->mean_start_gps_x = start_x_1/count_1;
-    drone2->mean_start_gps_y = start_y_1/count_1;
-    // ROS_INFO("Mean drone1 altitude %f %f %d", drone2->mean_start_gps, start_alt_1, count_1);
-  }
-  switch(drone2->state) {
-    case 0: 
-      break;
-    case 1:
-      if(drone2->finished == false) {
-        step(*drone2);
-      } else {
-        drone2->state = 3;
-        drone2->setTarget(drone2->mean_start_gps_x - 2, drone2->mean_start_gps_y, 4.0, 0.0); // drone2->target.x = -3;
-        // drone2->target.y = 4.5;
-        // drone2->target.z = -5;
-        drone2->reached_goal_ = false;
-        drone2->finished = false;
-        ROS_INFO("Done with route 1");
-      }
-      break;
-    case 2:
-      if(drone2->finished == false) {
-        step(*drone2);
-      } else {
-        drone2->finished = drone2->takeoff_land(6); //Landing
-        drone2->state = 0;
-        ROS_INFO("Done Landing");
-      }
-      break;
-    case 3:
-      if(drone2->finished == false) {
-        step(*drone2);
-      } else {
-        drone2->state = 4;
-        drone2->setTarget(drone2->mean_start_gps_x - 2, drone2->mean_start_gps_y - 2, 4.0, 0.0);
-        drone2->reached_goal_ = false;
-        drone2->finished = false;
-        ROS_INFO("Done with route 2");
-      }
-      break;
-    case 4:
-      if(drone2->finished == false) {
-        step(*drone2);
-      } else {
-        drone2->state = 5;
-        drone2->setTarget(drone2->mean_start_gps_x, drone2->mean_start_gps_y - 2, 4.0, 0.0);
-        drone2->reached_goal_ = false;
-        drone2->finished = false;
-        ROS_INFO("Done with route 3");
-      }
-      break;
-    case 5:
-      if(drone2->finished == false) {
-        step(*drone2);
-      } else {
-        drone2->state = 2;
-        drone2->setTarget(drone2->mean_start_gps_x, drone2->mean_start_gps_y, 4.0, 0.0);
-        drone2->reached_goal_ = false;
-        drone2->finished = false;
         ROS_INFO("Done with route 4");
       }
       break;
@@ -551,3 +551,87 @@ void Drone_Mission::setTarget(float x, float y, float z, float yaw)
   target.z = z;
   target.yaw = yaw;
 }
+
+
+void Drone_Mission::gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg) {
+  current_gps = *msg;
+  // utm_publish(current_drone1_utm);
+  static int count_1 = 0;
+  static double start_alt_1 = 0;
+  static double start_x_1 = 0;
+  static double start_y_1 = 0;
+  // static double start_magx = 0;
+  if((ros::Time::now().toSec() - time) < 20) {
+    count_1 += 1;
+    start_alt_1 += current_gps.altitude;
+    start_x_1 += curr_odom_.pose.pose.position.x;
+    start_y_1 += curr_odom_.pose.pose.position.y;
+    mean_start_gps_alt = start_alt_1/count_1;
+    mean_start_gps_x = start_x_1/count_1;
+    mean_start_gps_y = start_y_1/count_1;
+    // ROS_INFO("Mean drone1 altitude %f %f %d", mean_start_gps, start_alt_1, count_1);
+  }
+  switch(state) {
+    case 0: 
+      break;
+    case 1:
+      if(finished == false) {
+        step(*drone1);
+      } else {
+        state = 3;
+        setTarget(mean_start_gps_x - 2, mean_start_gps_y, 4.0, 0.0); // target.x = -3;
+        // target.y = 4.5;
+        // target.z = -5;
+        reached_goal_ = false;
+        finished = false;
+        ROS_INFO("Done with route 1");
+      }
+      break;
+    case 2:
+      if(finished == false) {
+        step(*drone1);
+      } else {
+        finished = takeoff_land(6); //Landing
+        state = 0;
+        ROS_INFO("Done Landing");
+      }
+      break;
+    case 3:
+      if(finished == false) {
+        step(*drone1);
+      } else {
+        state = 4;
+        setTarget(mean_start_gps_x - 2, mean_start_gps_y - 2, 4.0, 0.0);
+        reached_goal_ = false;
+        finished = false;
+        ROS_INFO("Done with route 2");
+      }
+      break;
+    case 4:
+      if(finished == false) {
+        step(*drone1);
+      } else {
+        state = 5;
+        setTarget(mean_start_gps_x, mean_start_gps_y - 2, 4.0, 0.0);
+        reached_goal_ = false;
+        finished = false;
+        ROS_INFO("Done with route 3");
+      }
+      break;
+    case 5:
+      if(finished == false) {
+        step(*drone1);
+      } else {
+        state = 2;
+        setTarget(mean_start_gps_x, mean_start_gps_y, 4.0, 0.0);
+        reached_goal_ = false;
+        finished = false;
+        ROS_INFO("Done with route 4");
+      }
+      break;
+    default:
+      ROS_INFO("Invalid State");
+      break;
+  }
+}
+

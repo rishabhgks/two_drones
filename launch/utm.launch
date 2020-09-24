@@ -1,6 +1,0 @@
-<launch>
-  <node pkg="gps_common" type="utm_odometry_node" name="utm_odometry_drone" output="screen" >
-      <remap from="/fix" to="/airsim_node/SimpleFlight/global_gps"/>
-      <remap from="/odom" to="airsim_node/SimpleFlight/odom"/>
-  </node>
-</launch>

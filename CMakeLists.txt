@@ -53,6 +53,15 @@ target_link_libraries(hover_node
   ${DJIOSDK_LIBRARIES}
 )
 
+add_executable(four_drone_node src/four_drone_node.cpp)
+
+add_dependencies(four_drone_node ${catkin_EXPORTED_TARGETS})
+
+target_link_libraries(four_drone_node
+  ${catkin_LIBRARIES}
+  ${DJIOSDK_LIBRARIES}
+)
+
 add_executable(odom_pub_node src/odom_pub_node.cpp)
 
 add_dependencies(odom_pub_node ${catkin_EXPORTED_TARGETS})

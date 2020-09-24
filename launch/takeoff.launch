@@ -1,5 +1,7 @@
 <launch>
-  <include file="$(find two_drones)/launch/geonav_node.launch"/>
+  <include file="$(find two_drones)/launch/geonav_node.launch" >
+    <arg name="drone_name" value="frl_uas6"/>
+  </include>
 
-  <node name="takeoff_node" pkg="two_drones" type="takeoff_node" output="screen" launch-prefix="bash -c 'sleep 5; $0 $@' "/>
+  <node name="takeoff_node" pkg="two_drones" type="takeoff_node" output="screen" />
 </launch>

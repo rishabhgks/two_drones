@@ -38,11 +38,11 @@ int main(int argc, char **argv)
 
   spinner.start();
 
-  drone1 = new Drone_Mission("frl_uas5", n);
+  drone1 = new Drone_Mission("frl_uas6", n);
 
   drone1->time = ros::Time::now().toSec();
 
-  drone1->fix = n.subscribe("frl_uas5/dji_sdk/gps_position", 10, &drone1_gps_callback);
+  drone1->fix = n.subscribe("frl_uas6/dji_sdk/gps_position", 10, &drone1_gps_callback);
 
   // %EndTag(PUBLISHER)%
 
@@ -68,7 +68,7 @@ int main(int argc, char **argv)
     static int count = 0;
     while (ros::ok())
     {
-      ROS_INFO("Current state: %d | Current Time: %f", drone1->state, (ros::Time::now().toSec() - drone1->time));
+      ROS_INFO("Current state: %d | Current Time: %f | Current x y: %f %f | Target x y: %f %f", drone1->state, (ros::Time::now().toSec() - drone1->time), drone1->curr_position_.x, drone1->curr_position_.y, drone1->target.x, drone1->target.y);
       if((ros::Time::now().toSec() - drone1->time) > 20 && (ros::Time::now().toSec() - drone1->time) < 30 && count < 2) {
         drone1->state = 1;
         drone1->setTarget(drone1->mean_start_gps_x, drone1->mean_start_gps_y, 4.0, 0.0);
@@ -448,3 +448,4 @@ void Drone_Mission::setTarget(float x, float y, float z, float yaw)
   target.z = z;
   target.yaw = yaw;
 }
+

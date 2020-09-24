@@ -1,7 +1,28 @@
-<?xml version="1.0"?>
-
 <launch>
-    <!-- <param name="/use_sim_time" value="true"/> -->
+  <!-- <include file="$(find two_drones)/launch/geonav_node.launch" >
+    <arg name="drone_name" value="frl_uas5"/>
+  </include>
 
-    <node pkg="two_drones" name="hover_node" type="hover_node" output="screen"/>
+  <include file="$(find two_drones)/launch/geonav_node.launch" >
+    <arg name="drone_name" value="frl_uas6"/>
+  </include> -->
+
+    <group ns="frl_uas5">
+        <node name="odom_pub_node_5" type="odom_pub_node" pkg="two_drones" output="screen"/>
+
+        <node pkg="geonav_transform" type="geonav_transform_node" name="geonav_transform_node_5" clear_params="true">
+            <rosparam param="datum">[22.042813, 112.958902, 0.0]</rosparam>
+        </node>
+    </group>
+
+    <group ns="frl_uas6">
+        <node name="odom_pub_node_6" type="odom_pub_node" pkg="two_drones" output="screen"/>
+
+        <node pkg="geonav_transform" type="geonav_transform_node" name="geonav_transform_node_6" clear_params="true" launch-prefix="bash -c 'sleep 3; $0 $@' " >
+            <rosparam param="datum">[22.042813, 112.958902, 0.0]</rosparam>
+        </node>
+    </group>
+
+
+  <node name="hover_node" pkg="two_drones" type="hover_node" output="screen" launch-prefix="bash -c 'sleep 6; $0 $@' "/>
 </launch>

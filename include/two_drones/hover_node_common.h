@@ -148,9 +148,9 @@ public:
         diff_yaw = 1000;
         reached_goal_ = false;
         // magnetic = nh.subscribe("/airsim_node/" + name + "/magnetometer/Magnetometer", 10, &Drone_Mission::magneticCallback, this);
-        imu = nh.subscribe(name + "/dji_sdk/imu", 10, &Drone_Mission::imuCallback, this);
+        imu = nh.subscribe("/frl_uas5/dji_sdk/imu", 10, &Drone_Mission::imuCallback, this);
         odom = nh.subscribe(name + "/geonav_odom", 10, &Drone_Mission::odomCallback, this);
-        // fix = nh.subscribe(name + "/dji_sdk/gps_position", 10, &Drone_Mission::gps_callback, this);
+        fix = nh.subscribe(name + "/dji_sdk/gps_position", 10, &Drone_Mission::gps_callback, this);
         move_drone = nh.advertise<sensor_msgs::Joy>(name + "/dji_sdk/flight_control_setpoint_ENUvelocity_yawrate", 1);
         drone_frame = name + "/odom_local_ned";
 
@@ -192,7 +192,7 @@ public:
     void flight_status_callback(const std_msgs::UInt8::ConstPtr& msg);
     bool takeoff_land(int task);
     void setTarget(float x, float y, float z, float yaw);
-    // void gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg);
+    void gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg);
 };
 
 // void drone1_imuCallback(const sensor_msgs::ImuConstPtr& msg);
@@ -204,7 +204,6 @@ void transform_world_to_local(Drone_Mission &drone);
 void drone1_gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg);
 void drone2_gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg);
 void drone3_gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg);
-void drone4_gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg);
 double get_yaw_from_quat_msg(const geometry_msgs::Quaternion& quat_msg);
 
 #endif // HOVER_NODE_H
