@@ -91,8 +91,8 @@ int main(int argc, char **argv)
     ROS_INFO("Current state: %d %d | Current Time: %f", drone1->state, drone2->state, (ros::Time::now().toSec() - drone1->time));
     if((ros::Time::now().toSec() - drone1->time) > 20 && (ros::Time::now().toSec() - drone1->time) < 30 && count < 2) {
       drone1->state = drone2->state = 1;
-      drone1->setTarget(drone1->mean_start_gps_x, drone1->mean_start_gps_y, 4.0, 0.0);
-      drone2->setTarget(drone2->mean_start_gps_x, drone2->mean_start_gps_y, 4.0, 0.0);
+      drone1->setTarget(drone1->mean_start_gps_x, drone1->mean_start_gps_y, drone1->mean_start_gps_alt + 1.5, 0.0);
+      drone2->setTarget(drone2->mean_start_gps_x, drone2->mean_start_gps_y, drone1->mean_start_gps_alt + 1.5, 0.0);
       ++count;
       ROS_INFO("Trying to control now");
     }  
@@ -197,6 +197,20 @@ void Drone_Mission::enforce_dynamic_constraints()
         // template <typename T> double sgn(T val) { return (T(0) < val) - (val < T(0)); }
         motor_msg.axes[2] = (motor_msg.axes[2] / std::fabs(motor_msg.axes[2])) * max_vel_vert_abs; 
     }
+
+    // if (vel_norm_horz < min_vel_horz_abs)
+    // {
+    //     motor_msg.axes[0] = (motor_msg.axes[0] / vel_norm_horz) * min_vel_horz_abs; 
+    //     motor_msg.axes[1] = (motor_msg.axes[1] / vel_norm_horz) * min_vel_horz_abs;  
+    // }
+
+    // if (std::fabs(motor_msg.axes[2]) < min_vel_vert_abs)
+    // {
+    //     // todo just add a sgn funciton in common utils? return double to be safe. 
+    //     // template <typename T> double sgn(T val) { return (T(0) < val) - (val < T(0)); }
+    //     motor_msg.axes[2] = (motor_msg.axes[2] / std::fabs(motor_msg.axes[2])) * min_vel_vert_abs; 
+    // }
+
     // todo yaw limits
     if (std::fabs(motor_msg.axes[2]) > max_yaw_rate_degree)
     {
@@ -246,7 +260,7 @@ void drone1_gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg) {
         step(*drone1);
       } else {
         drone1->state = 3;
-        drone1->setTarget(drone1->mean_start_gps_x - 2, drone1->mean_start_gps_y, 4.0, 0.0); // drone1->target.x = -3;
+        drone1->setTarget(drone1->mean_start_gps_x - 1, drone1->mean_start_gps_y, drone1->mean_start_gps_alt + 1.5, 0.0); // drone1->target.x = -3;
         // drone1->target.y = 4.5;
         // drone1->target.z = -5;
         drone1->reached_goal_ = false;
@@ -268,7 +282,7 @@ void drone1_gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg) {
         step(*drone1);
       } else {
         drone1->state = 4;
-        drone1->setTarget(drone1->mean_start_gps_x - 2, drone1->mean_start_gps_y - 2, 4.0, 0.0);
+        drone1->setTarget(drone1->mean_start_gps_x - 1, drone1->mean_start_gps_y - 1, drone1->mean_start_gps_alt + 1.5, 0.0);
         drone1->reached_goal_ = false;
         drone1->finished = false;
         ROS_INFO("Done with route 2");
@@ -279,7 +293,7 @@ void drone1_gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg) {
         step(*drone1);
       } else {
         drone1->state = 5;
-        drone1->setTarget(drone1->mean_start_gps_x, drone1->mean_start_gps_y - 2, 4.0, 0.0);
+        drone1->setTarget(drone1->mean_start_gps_x, drone1->mean_start_gps_y - 1, drone1->mean_start_gps_alt + 1.5, 0.0);
         drone1->reached_goal_ = false;
         drone1->finished = false;
         ROS_INFO("Done with route 3");
@@ -290,7 +304,7 @@ void drone1_gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg) {
         step(*drone1);
       } else {
         drone1->state = 2;
-        drone1->setTarget(drone1->mean_start_gps_x, drone1->mean_start_gps_y, 4.0, 0.0);
+        drone1->setTarget(drone1->mean_start_gps_x, drone1->mean_start_gps_y, drone1->mean_start_gps_alt + 1.5, 0.0);
         drone1->reached_goal_ = false;
         drone1->finished = false;
         ROS_INFO("Done with route 4");
@@ -328,7 +342,7 @@ void drone2_gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg) {
         step(*drone2);
       } else {
         drone2->state = 3;
-        drone2->setTarget(drone2->mean_start_gps_x - 2, drone2->mean_start_gps_y, 4.0, 0.0); // drone2->target.x = -3;
+        drone2->setTarget(drone2->mean_start_gps_x - 1, drone2->mean_start_gps_y, drone1->mean_start_gps_alt + 1.5, 0.0); // drone2->target.x = -3;
         // drone2->target.y = 4.5;
         // drone2->target.z = -5;
         drone2->reached_goal_ = false;
@@ -350,7 +364,7 @@ void drone2_gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg) {
         step(*drone2);
       } else {
         drone2->state = 4;
-        drone2->setTarget(drone2->mean_start_gps_x - 2, drone2->mean_start_gps_y - 2, 4.0, 0.0);
+        drone2->setTarget(drone2->mean_start_gps_x - 1, drone2->mean_start_gps_y - 1, drone1->mean_start_gps_alt + 1.5, 0.0);
         drone2->reached_goal_ = false;
         drone2->finished = false;
         ROS_INFO("Done with route 2");
@@ -361,7 +375,7 @@ void drone2_gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg) {
         step(*drone2);
       } else {
         drone2->state = 5;
-        drone2->setTarget(drone2->mean_start_gps_x, drone2->mean_start_gps_y - 2, 4.0, 0.0);
+        drone2->setTarget(drone2->mean_start_gps_x, drone2->mean_start_gps_y - 1, drone1->mean_start_gps_alt + 1.5, 0.0);
         drone2->reached_goal_ = false;
         drone2->finished = false;
         ROS_INFO("Done with route 3");
@@ -372,7 +386,7 @@ void drone2_gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg) {
         step(*drone2);
       } else {
         drone2->state = 2;
-        drone2->setTarget(drone2->mean_start_gps_x, drone2->mean_start_gps_y, 4.0, 0.0);
+        drone2->setTarget(drone2->mean_start_gps_x, drone2->mean_start_gps_y, drone1->mean_start_gps_alt + 1.5, 0.0);
         drone2->reached_goal_ = false;
         drone2->finished = false;
         ROS_INFO("Done with route 4");

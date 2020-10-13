@@ -70,6 +70,8 @@ public:
     double max_vel_horz_abs; // meters/sec
     double max_vel_vert_abs;
     double max_yaw_rate_degree;
+    double min_vel_horz_abs;
+    double min_vel_vert_abs;
     double diff_xyz;
     double diff_yaw;
     double roll, pitch, yaw, dist_x, dist_y, theta;
@@ -122,8 +124,8 @@ public:
     Drone_Mission() {}
 
     Drone_Mission(std::string n, const ros::NodeHandle nh_) : name(n), nh(nh_), state(0), substate(0), finished(false), 
-                    mean_start_gps_alt(0.0), Y_POS(1.0), max_vel_horz_abs(1.0), max_vel_vert_abs(0.5), max_yaw_rate_degree(10.0), 
-                    counter(0), mean_start_gps_x(0.0), mean_start_gps_y(0.0)
+                    mean_start_gps_alt(0.0), Y_POS(1.0), max_vel_horz_abs(0.6), max_vel_vert_abs(0.5), max_yaw_rate_degree(10.0), 
+                    counter(0), mean_start_gps_x(0.0), mean_start_gps_y(0.0), min_vel_horz_abs(0.1), min_vel_vert_abs(0.1)
     {
         // *nh = nh_;
         target.x = 0.0;
