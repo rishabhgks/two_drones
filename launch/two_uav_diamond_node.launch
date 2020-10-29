@@ -1,0 +1,15 @@
+<launch>
+  <!-- <include file="$(find two_drones)/launch/geonav_node.launch" >
+    <arg name="drone_name" value="frl_uas6"/>
+  </include> -->
+<!-- 
+  <group ns="frl_uas9">
+      <node name="odom_pub_node" type="odom_pub_node" pkg="two_drones" output="screen"/>
+
+      <node pkg="geonav_transform" type="geonav_transform_node" name="geonav_transform_node" clear_params="true">
+          <rosparam param="datum">[42.4579789581, -71.2135958949, 0.0]</rosparam>
+      </node>
+  </group> -->
+
+  <node name="two_uav_diamond_node" pkg="two_drones" type="two_uav_diamond_node" output="screen" />
+</launch>

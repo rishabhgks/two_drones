@@ -1,6 +1,6 @@
 
-#ifndef HOVER_NODE_H
-#define HOVER_NODE_H
+#ifndef BEAM_FORMING_NODE_H
+#define BEAM_FORMING_NODE_H
 
 // ROS includes
 #include <ros/ros.h>
@@ -12,10 +12,11 @@
 #include <sensor_msgs/Imu.h>
 #include <sensor_msgs/MagneticField.h>
 #include <std_msgs/UInt8.h>
+#include <std_msgs/Float64.h>
 #include <nav_msgs/Odometry.h>
 #include <geometry_msgs/Vector3.h>
 #include <geometry_msgs/PointStamped.h>
-#include <geometry_msgs/Point.h>
+
 #include <dji_sdk/DroneTaskControl.h>
 #include <dji_sdk/SDKControlAuthority.h>
 #include <dji_sdk/QueryDroneVersion.h>
@@ -43,6 +44,8 @@ public:
     std::string name;
     std::string VEHICLE_NAME;
     std::string drone_frame;
+
+    std_msgs::Float64 threshold;
 
     int state;
     int substate;
@@ -87,7 +90,6 @@ public:
     geometry_msgs::Vector3 test;
     geometry_msgs::PointStamped world_point;
     geometry_msgs::PointStamped local_point;
-    std::vector<XYZYaw> waypoints;
     
     sensor_msgs::NavSatFix current_gps;
     sensor_msgs::MagneticField current_magnetic;
@@ -101,6 +103,7 @@ public:
     ros::Subscriber imu;
     ros::Subscriber odom;
     ros::Subscriber odom_local;
+    ros::Subscriber threshold_node;
 
     ros::Publisher move_drone;
     ros::Publisher tester;
@@ -119,14 +122,13 @@ public:
     uint8_t flag; 
     bool obtain_control_result;
     bool takeoff_result;
-    bool sync;
 
     // void gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg);
 
     Drone_Mission() {}
 
     Drone_Mission(std::string n, const ros::NodeHandle nh_) : name(n), nh(nh_), state(0), substate(0), finished(false), 
-                    mean_start_gps_alt(0.0), Y_POS(1.0), max_vel_horz_abs(0.8), max_vel_vert_abs(0.5), max_yaw_rate_degree(10.0), 
+                    mean_start_gps_alt(0.0), Y_POS(1.0), max_vel_horz_abs(0.6), max_vel_vert_abs(0.5), max_yaw_rate_degree(10.0), 
                     counter(0), mean_start_gps_x(0.0), mean_start_gps_y(0.0), min_vel_horz_abs(0.1), min_vel_vert_abs(0.1)
     {
         // *nh = nh_;
@@ -141,7 +143,7 @@ public:
         kd_y = 0.05;
         kd_z = 0.05;
         kd_yaw = 0.05;
-        reached_thresh_xyz = 0.28;
+        reached_thresh_xyz = 0.1;
         reached_yaw_degrees = 5.0;
         VEHICLE_NAME = name;
         prev_error_.x = 0.0;
@@ -150,11 +152,11 @@ public:
         prev_error_.yaw = 0.0;
         diff_xyz = 1000;
         diff_yaw = 1000;
-        sync = false;
         reached_goal_ = false;
         // magnetic = nh.subscribe("/airsim_node/" + name + "/magnetometer/Magnetometer", 10, &Drone_Mission::magneticCallback, this);
         imu = nh.subscribe(name + "/dji_sdk/imu", 10, &Drone_Mission::imuCallback, this);
         odom = nh.subscribe(name + "/geonav_odom", 10, &Drone_Mission::odomCallback, this);
+        threshold_node = nh.subscribe<std_msgs::Float64>("beam_forming_threshold", 10, &Drone_Mission::thresholdCallback, this);
         // fix = nh.subscribe(name + "/dji_sdk/gps_position", 10, &Drone_Mission::gps_callback, this);
         move_drone = nh.advertise<sensor_msgs::Joy>(name + "/dji_sdk/flight_control_setpoint_ENUvelocity_yawrate", 1);
         drone_frame = name + "/odom_local_ned";
@@ -185,6 +187,7 @@ public:
     void imuCallback(const sensor_msgs::ImuConstPtr& msg);
     void odomCallback(const nav_msgs::OdometryConstPtr& msg);
     void odomLocalCallback(const nav_msgs::OdometryConstPtr& msg);
+    void thresholdCallback(const std_msgs::Float64ConstPtr& msg);
     // void magneticCallback(const sensor_msgs::MagneticField::ConstPtr& msg);
     void compute_control_cmd();
     void enforce_dynamic_constraints();
@@ -197,7 +200,6 @@ public:
     void flight_status_callback(const std_msgs::UInt8::ConstPtr& msg);
     bool takeoff_land(int task);
     void setTarget(float x, float y, float z, float yaw);
-    void setTarget(XYZYaw& waypoint);
     // void gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg);
 };
 
@@ -212,6 +214,5 @@ void drone2_gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg);
 void drone3_gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg);
 void drone4_gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg);
 double get_yaw_from_quat_msg(const geometry_msgs::Quaternion& quat_msg);
-void calculate_waypoints(geometry_msgs::Point& center, std::vector<XYZYaw>& waypoints, int direction);
 
-#endif // HOVER_NODE_H
+#endif // BEAM_FORMING_NODE_H

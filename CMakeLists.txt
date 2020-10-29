@@ -85,6 +85,30 @@ target_link_libraries(takeoff_node
 )
 add_dependencies(takeoff_node ${catkin_EXPORTED_TARGETS})
 
+add_executable(beam_forming_node src/beam_forming_node.cpp)
+
+target_link_libraries(beam_forming_node
+  ${catkin_LIBRARIES}
+  ${DJIOSDK_LIBRARIES}
+)
+add_dependencies(beam_forming_node ${catkin_EXPORTED_TARGETS})
+
+add_executable(one_uav_diamond_node src/one_uav_diamond_node.cpp)
+
+target_link_libraries(one_uav_diamond_node
+  ${catkin_LIBRARIES}
+  ${DJIOSDK_LIBRARIES}
+)
+add_dependencies(one_uav_diamond_node ${catkin_EXPORTED_TARGETS})
+
+add_executable(two_uav_diamond_node src/two_uav_diamond_node.cpp)
+
+target_link_libraries(two_uav_diamond_node
+  ${catkin_LIBRARIES}
+  ${DJIOSDK_LIBRARIES}
+)
+add_dependencies(two_uav_diamond_node ${catkin_EXPORTED_TARGETS})
+
 # add_executable(obstacle_avoidance src/obstacle_avoidance.cpp)
 
 # target_link_libraries(obstacle_avoidance
