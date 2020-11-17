@@ -42,11 +42,11 @@ int main(int argc, char **argv)
 
   spinner.start();
 
-  drone1 = new Drone_Mission("frl_uas5", n);
+  drone1 = new Drone_Mission("frl_uas8", n);
 
   drone1->time = ros::Time::now().toSec();
 
-  drone1->fix = n.subscribe("frl_uas5/dji_sdk/gps_position", 1, &drone1_gps_callback);
+  drone1->fix = n.subscribe("frl_uas8/dji_sdk/gps_position", 1, &drone1_gps_callback);
 
   ros::Subscriber ber_sub = n.subscribe("beam_forming_threshold", 1, &beam_forming_callback);
 
@@ -90,7 +90,7 @@ int main(int argc, char **argv)
         center.y = (drone1->mean_start_gps_y);
         center.z = (drone1->mean_start_gps_alt);
 
-        calculate_waypoints(center, drone1->waypoints, -1);
+        calculate_waypoints(center, drone1->waypoints, 1, 1);
       }
       ++count;
       ROS_INFO("Trying to control now");
@@ -99,7 +99,6 @@ int main(int argc, char **argv)
     if(ber.data > 0.5)
     {
       ber_mode = true;
-      drone1->prev_waypoint = waypoint_count;
     }
 
     if(drone1->finished)
@@ -493,49 +492,90 @@ void beam_forming_callback(const std_msgs::Float32ConstPtr& msg)
   ber = *msg;
 }
 
-void calculate_waypoints(geometry_msgs::Point& center, std::vector<XYZYaw>& waypoints, int direction)
+void calculate_waypoints(geometry_msgs::Point& center, std::vector<XYZYaw>& waypoints, int direction, int offset)
 {
   /************* Formation 1 Begins **************/
   XYZYaw point;
-  point.x = center.x + (direction*1);
-  point.y = center.y;
+  point.x = center.x + ((direction*1) - offset);
+  point.y = center.y + offset;
   point.z = center.z + 1.5;
   point.yaw = 0;
   waypoints.push_back(point);
-  point.x = center.x + (direction*1);
-  point.y = center.y - 2;
-  point.z = center.z + 1.5;
-  point.yaw = 0;
-  waypoints.push_back(point);
-  point.x = center.x + (direction*1);
-  point.y = center.y - 2;
-  point.z = center.z + 1.5;
-  point.yaw = 0;
-  waypoints.push_back(point);
-  point.x = center.x + (direction*3);
-  point.y = center.y - 2;
-  point.z = center.z + 1.5;
-  point.yaw = 0;
-  waypoints.push_back(point);
-  point.x = center.x + (direction*5);
-  point.y = center.y;
-  point.z = center.z + 1.5;
-  point.yaw = 0;
-  waypoints.push_back(point);
-  point.x = center.x + (direction*3);
-  point.y = center.y + 2;
-  point.z = center.z + 1.5;
-  point.yaw = 0;
-  waypoints.push_back(point);
-  point.x = center.x + (direction*1);
-  point.y = center.y;
-  point.z = center.z + 1.5;
-  point.yaw = 0;
-  waypoints.push_back(point);
-  point.x = center.x + (direction*3);
-  point.y = center.y - 2;
-  point.z = center.z + 1.5;
-  point.yaw = 0;
-  waypoints.push_back(point);
+  if (offset == 0)
+  {
+    point.x = center.x + (direction*1);
+    point.y = center.y - 2;
+    point.z = center.z + 1.5;
+    point.yaw = 0;
+    waypoints.push_back(point);
+    point.x = center.x + (direction*1);
+    point.y = center.y - 2;
+    point.z = center.z + 1.5;
+    point.yaw = 0;
+    waypoints.push_back(point);
+    point.x = center.x + (direction*3);
+    point.y = center.y - 2;
+    point.z = center.z + 1.5;
+    point.yaw = 0;
+    waypoints.push_back(point);
+    point.x = center.x + (direction*5);
+    point.y = center.y;
+    point.z = center.z + 1.5;
+    point.yaw = 0;
+    waypoints.push_back(point);
+    point.x = center.x + (direction*3);
+    point.y = center.y + 2;
+    point.z = center.z + 1.5;
+    point.yaw = 0;
+    waypoints.push_back(point);
+    point.x = center.x + (direction*1);
+    point.y = center.y;
+    point.z = center.z + 1.5;
+    point.yaw = 0;
+    waypoints.push_back(point);
+    point.x = center.x + (direction*3);
+    point.y = center.y - 2;
+    point.z = center.z + 1.5;
+    point.yaw = 0;
+    waypoints.push_back(point);
+  }
+  else
+  {
+    point.x = center.x + ((direction*1) - offset);
+    point.y = center.y + offset;
+    point.z = center.z + 1.5;
+    point.yaw = 0;
+    waypoints.push_back(point);
+    point.x = center.x + ((direction*1) - offset);
+    point.y = center.y + offset;
+    point.z = center.z + 1.5;
+    point.yaw = 0;
+    waypoints.push_back(point);
+    point.x = center.x + ((direction*1) - offset);
+    point.y = center.y + offset;
+    point.z = center.z + 1.5;
+    point.yaw = 0;
+    waypoints.push_back(point);
+    point.x = center.x - 2;
+    point.y = center.y + (offset*3);
+    point.z = center.z + 1.5;
+    point.yaw = 0;
+    waypoints.push_back(point);
+    point.x = center.x;
+    point.y = center.y + (offset*5);
+    point.z = center.z + 1.5;
+    point.yaw = 0;
+    waypoints.push_back(point);
+    point.x = center.x + 2;
+    point.y = center.y + (offset*3);
+    point.z = center.z + 1.5;
+    point.yaw = 0;
+    waypoints.push_back(point);
+    point.x = center.x + ((direction*1) - offset);
+    point.y = center.y + offset;
+    point.z = center.z + 1.5;
+    point.yaw = 0;
+    waypoints.push_back(point);
+  }
   /************* Formation 1 Ends **************/
 }

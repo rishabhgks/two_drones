@@ -20,6 +20,8 @@ Drone_Mission *drone1;
 
 Drone_Mission *drone2;
 
+Drone_Mission *drone3;
+
 geometry_msgs::Point center;
 
 const float deg2rad = C_PI/180.0;
@@ -33,7 +35,7 @@ int main(int argc, char **argv)
 {
 
   // %Tag(INIT)%
-  ros::init(argc, argv, "two_uav_dia_opti_node");
+  ros::init(argc, argv, "three_uav_dia_opti_node");
   // %EndTag(INIT)%
 
   // %Tag(NODEHANDLE)%
@@ -48,11 +50,15 @@ int main(int argc, char **argv)
 
   drone2 = new Drone_Mission("frl_uas8", n);
 
-  drone1->time = drone2->time = ros::Time::now().toSec();
+  drone3 = new Drone_Mission("frl_uas9", n);
+
+  drone1->time = drone2->time = drone3->time = ros::Time::now().toSec();
 
   drone1->fix = n.subscribe("frl_uas6/dji_sdk/gps_position", 1, &drone1_gps_callback);
 
   drone2->fix = n.subscribe("frl_uas8/dji_sdk/gps_position", 1, &drone2_gps_callback);
+
+  drone3->fix = n.subscribe("frl_uas9/dji_sdk/gps_position", 1, &drone3_gps_callback);
 
   ros::Subscriber ber_sub = n.subscribe("beam_forming_threshold", 1, &beam_forming_callback);
 
@@ -66,6 +72,8 @@ int main(int argc, char **argv)
   
   drone2->obtain_control_result = drone2->obtain_control();
 
+  drone3->obtain_control_result = drone3->obtain_control();
+
   if(drone1->is_M100())
   {
     ROS_INFO("M100 taking off!");
@@ -78,7 +86,7 @@ int main(int argc, char **argv)
     drone1->takeoff_result = drone1->monitoredTakeoff();
   }
 
-    if(drone2->is_M100())
+  if(drone2->is_M100())
   {
     ROS_INFO("M100 taking off!");
     drone2->takeoff_result = drone2->M100monitoredTakeoff();
@@ -90,27 +98,44 @@ int main(int argc, char **argv)
     drone2->takeoff_result = drone2->monitoredTakeoff();
   }
 
+  if(drone3->is_M100())
+  {
+    ROS_INFO("M100 taking off!");
+    drone3->takeoff_result = drone3->M100monitoredTakeoff();
+    // drone3->finished = drone3->takeoff_land(6);
+  }
+  else
+  {
+    ROS_INFO("A3/N3 taking off!");
+    drone3->takeoff_result = drone3->monitoredTakeoff();
+  }
+
   int waypoint_count = 0;
 
   // %Tag(ROS_OK)%
   static int count = 0;
   while (ros::ok())
   {
-    ROS_INFO("Current state: %d %d | Current position: %f %f %f | Current Time: %f", drone1->state, drone2->state, drone1->curr_odom_.pose.pose.position.x, drone1->curr_odom_.pose.pose.position.y, drone1->curr_odom_.pose.pose.position.z, (ros::Time::now().toSec() - drone1->time));
+    ROS_INFO("Current Time: %f", (ros::Time::now().toSec() - drone1->time));
     if((ros::Time::now().toSec() - drone1->time) > 20 && (ros::Time::now().toSec() - drone1->time) < 30 && count < 2) {
-      ROS_INFO("Target position: %f %f %f | %f %f %f | Current Time: %f", drone1->target.x, drone1->target.y, drone1->target.z, drone2->target.x, drone2->target.y, drone2->target.z, (ros::Time::now().toSec() - drone1->time));
-      drone1->state = drone2->state = 1;
+      ROS_INFO("Target position: %f %f %f | %f %f %f | %f %f %f | Current Time: %f", drone1->target.x, drone1->target.y, 
+              drone1->target.z, drone2->target.x, drone2->target.y, drone2->target.z, 
+              drone3->target.x, drone3->target.y, drone3->target.z, (ros::Time::now().toSec() - drone1->time));
+      drone1->state = drone2->state = drone3->state = 1;
       drone1->setTarget(drone1->mean_start_gps_x, drone1->mean_start_gps_y, drone1->mean_start_gps_alt + 1.5, 0.0);
       drone2->setTarget(drone2->mean_start_gps_x, drone2->mean_start_gps_y, drone2->mean_start_gps_alt + 1.5, 0.0);
+      drone3->setTarget(drone3->mean_start_gps_x, drone3->mean_start_gps_y, drone3->mean_start_gps_alt + 1.5, 0.0);
       if(count == 0)
       {
-        center.x = (drone1->mean_start_gps_x + drone2->mean_start_gps_x)/2;
-        center.y = (drone1->mean_start_gps_y + drone2->mean_start_gps_y)/2;
-        center.z = (drone1->mean_start_gps_alt + drone2->mean_start_gps_alt)/2;
+        center.x = (drone1->mean_start_gps_x + drone2->mean_start_gps_x + drone3->mean_start_gps_x)/3;
+        center.y = (drone1->mean_start_gps_y + drone2->mean_start_gps_y + drone3->mean_start_gps_y)/3;
+        center.z = (drone1->mean_start_gps_alt + drone2->mean_start_gps_alt + drone3->mean_start_gps_alt)/3;
 
         calculate_waypoints(center, drone1->waypoints, -1, 0);
 
         calculate_waypoints(center, drone2->waypoints, 1, 0);
+
+        calculate_waypoints(center, drone3->waypoints, 1, 1);
       }
       ++count;
       ROS_INFO("Trying to control now");
@@ -121,18 +146,22 @@ int main(int argc, char **argv)
       ber_mode = true;
     }
 
-    if(drone1->finished && drone2->finished)
+    if(drone1->finished && drone2->finished && drone3->finished)
     {
       if(ber_mode)
       {
         drone1->state = 1;
         drone2->state = 1;
+        drone3->state = 1;
         drone1->setTarget(drone1->waypoints[6]);
         drone1->finished = false;
         drone1->reached_goal_ = false;
         drone2->setTarget(drone2->waypoints[6]);
         drone2->finished = false;
         drone2->reached_goal_ = false;
+        drone3->setTarget(drone3->waypoints[0]);
+        drone3->finished = false;
+        drone3->reached_goal_ = false;
         if(ber.data < 0.5)
         {
           ber_mode = false;
@@ -142,6 +171,9 @@ int main(int argc, char **argv)
           drone2->setTarget(drone2->waypoints[7]);
           drone2->finished = false;
           drone2->reached_goal_ = false;
+          drone3->setTarget(drone3->waypoints[0]);
+          drone3->finished = false;
+          drone3->reached_goal_ = false;
         }
       }
       else 
@@ -150,6 +182,7 @@ int main(int argc, char **argv)
         {
           drone1->state = 0;
           drone2->state = 0;
+          drone3->state = 0;
         }
         else
         {
@@ -159,6 +192,9 @@ int main(int argc, char **argv)
           drone2->setTarget(drone2->waypoints[waypoint_count]);
           drone2->finished = false;
           drone2->reached_goal_ = false;
+          drone3->setTarget(drone3->waypoints[waypoint_count]);
+          drone3->finished = false;
+          drone3->reached_goal_ = false;
           waypoint_count++;
           ROS_INFO("Done with Route %d", waypoint_count + 1);
         }
@@ -374,6 +410,47 @@ void drone2_gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg) {
       } else {
           drone2->finished = drone2->takeoff_land(6); //Landing
           drone2->state = 0;
+          ROS_INFO("Done Landing");
+      }
+      break;
+    default:
+      ROS_INFO("Invalid State");
+      break;
+  }
+}
+
+void drone3_gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg) {
+  drone3->current_gps = *msg;
+  // utm_drone3->publish(current_drone1_utm);
+  static int count_1 = 0;
+  static double start_alt_1 = 0;
+  static double start_x_1 = 0;
+  static double start_y_1 = 0;
+  // static double start_magx = 0;
+  if((ros::Time::now().toSec() - drone3->time) < 20 && (ros::Time::now().toSec() - drone3->time) > 0) {
+    count_1 += 1;
+    start_alt_1 += drone3->current_gps.altitude;
+    start_x_1 += drone3->curr_odom_.pose.pose.position.x;
+    start_y_1 += drone3->curr_odom_.pose.pose.position.y;
+    drone3->mean_start_gps_alt = start_alt_1/count_1;
+    drone3->mean_start_gps_x = start_x_1/count_1;
+    drone3->mean_start_gps_y = start_y_1/count_1;
+    // ROS_INFO("Mean drone1 altitude %f %f %d", drone3->mean_start_gps, start_alt_1, count_1);
+  }
+  switch(drone3->state) {
+    case 0: 
+      break;
+    case 1:
+      if(drone3->finished == false) {
+        step(*drone3);
+      }
+      break;
+    case 2:
+      if(drone3->finished == false) {
+        step(*drone3);
+      } else {
+          drone3->finished = drone3->takeoff_land(6); //Landing
+          drone3->state = 0;
           ROS_INFO("Done Landing");
       }
       break;
