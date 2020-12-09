@@ -11,7 +11,7 @@ def talker():
     while not rospy.is_shutdown():
         # hello_str = "hello world %s" % start.secs
         # rospy.loginfo(hello_str)
-        threshold = 0.4 if (rospy.get_rostime().secs - start.secs) < 90 or (rospy.get_rostime().secs - start.secs) > 120 else 0.8
+        threshold = 0.4 if (rospy.get_rostime().secs - start.secs) < 1200 or (rospy.get_rostime().secs - start.secs) > 1500 else 0.8
         pub.publish(threshold)
         rate.sleep()
 

@@ -19,6 +19,7 @@ set(OpenCV_INCLUDE_DIRS "/usr/include/opencv4;/usr/include")
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
         roscpp
+        rospy
         geometry_msgs
         dji_sdk
         image_transport # for message_filter
@@ -108,6 +109,30 @@ target_link_libraries(two_uav_diamond_node
   ${DJIOSDK_LIBRARIES}
 )
 add_dependencies(two_uav_diamond_node ${catkin_EXPORTED_TARGETS})
+
+add_executable(one_uav_dia_opti_node src/one_uav_dia_opti_node.cpp)
+
+target_link_libraries(one_uav_dia_opti_node
+  ${catkin_LIBRARIES}
+  ${DJIOSDK_LIBRARIES}
+)
+add_dependencies(one_uav_dia_opti_node ${catkin_EXPORTED_TARGETS})
+
+add_executable(two_uav_dia_opti_node src/two_uav_dia_opti_node.cpp)
+
+target_link_libraries(two_uav_dia_opti_node
+  ${catkin_LIBRARIES}
+  ${DJIOSDK_LIBRARIES}
+)
+add_dependencies(two_uav_dia_opti_node ${catkin_EXPORTED_TARGETS})
+
+add_executable(three_uav_dia_opti_node src/three_uav_dia_opti_node.cpp)
+
+target_link_libraries(three_uav_dia_opti_node
+  ${catkin_LIBRARIES}
+  ${DJIOSDK_LIBRARIES}
+)
+add_dependencies(three_uav_dia_opti_node ${catkin_EXPORTED_TARGETS})
 
 # add_executable(obstacle_avoidance src/obstacle_avoidance.cpp)
 

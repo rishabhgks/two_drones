@@ -42,11 +42,11 @@ int main(int argc, char **argv)
 
   spinner.start();
 
-  drone1 = new Drone_Mission("frl_uas8", n);
+  drone1 = new Drone_Mission("frl_uas9", n);
 
   drone1->time = ros::Time::now().toSec();
 
-  drone1->fix = n.subscribe("frl_uas8/dji_sdk/gps_position", 1, &drone1_gps_callback);
+  drone1->fix = n.subscribe("frl_uas9/dji_sdk/gps_position", 1, &drone1_gps_callback);
 
   ros::Subscriber ber_sub = n.subscribe("beam_forming_threshold", 1, &beam_forming_callback);
 
@@ -90,7 +90,7 @@ int main(int argc, char **argv)
         center.y = (drone1->mean_start_gps_y);
         center.z = (drone1->mean_start_gps_alt);
 
-        calculate_waypoints(center, drone1->waypoints, 1, 1);
+        calculate_waypoints(center, drone1->waypoints, 1, 0);
       }
       ++count;
       ROS_INFO("Trying to control now");

@@ -12,6 +12,7 @@
 #include <sensor_msgs/Imu.h>
 #include <sensor_msgs/MagneticField.h>
 #include <std_msgs/UInt8.h>
+#include <std_msgs/Float32.h>
 #include <nav_msgs/Odometry.h>
 #include <geometry_msgs/Vector3.h>
 #include <geometry_msgs/PointStamped.h>
@@ -48,6 +49,7 @@ public:
     int substate;
     int sign;
     int counter;
+    int prev_waypoint;
     
     bool rotateToHeading;
     bool finished;
@@ -127,7 +129,7 @@ public:
 
     Drone_Mission(std::string n, const ros::NodeHandle nh_) : name(n), nh(nh_), state(0), substate(0), finished(false), 
                     mean_start_gps_alt(0.0), Y_POS(1.0), max_vel_horz_abs(0.8), max_vel_vert_abs(0.5), max_yaw_rate_degree(10.0), 
-                    counter(0), mean_start_gps_x(0.0), mean_start_gps_y(0.0), min_vel_horz_abs(0.1), min_vel_vert_abs(0.1)
+                    counter(0), mean_start_gps_x(0.0), mean_start_gps_y(0.0), min_vel_horz_abs(0.1), min_vel_vert_abs(0.1), prev_waypoint(0)
     {
         // *nh = nh_;
         target.x = 0.0;
@@ -158,6 +160,8 @@ public:
         // fix = nh.subscribe(name + "/dji_sdk/gps_position", 10, &Drone_Mission::gps_callback, this);
         move_drone = nh.advertise<sensor_msgs::Joy>(name + "/dji_sdk/flight_control_setpoint_ENUvelocity_yawrate", 1);
         drone_frame = name + "/odom_local_ned";
+
+        tester = nh.advertise<geometry_msgs::PointStamped>(name + "/dji_sdk/target_logger", 1);
 
         sdk_ctrl_authority_service = nh.serviceClient<dji_sdk::SDKControlAuthority> (name + "/dji_sdk/sdk_control_authority");
         drone_task_service         = nh.serviceClient<dji_sdk::DroneTaskControl>(name + "/dji_sdk/drone_task_control");
@@ -206,6 +210,7 @@ public:
 // void drone2_imuCallback(const sensor_msgs::ImuConstPtr& msg);
 
 void step(Drone_Mission &drone);
+void beam_forming_callback(const std_msgs::Float32ConstPtr& msg);
 void transform_world_to_local(Drone_Mission &drone);
 void drone1_gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg);
 void drone2_gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg);
@@ -213,5 +218,7 @@ void drone3_gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg);
 void drone4_gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg);
 double get_yaw_from_quat_msg(const geometry_msgs::Quaternion& quat_msg);
 void calculate_waypoints(geometry_msgs::Point& center, std::vector<XYZYaw>& waypoints, int direction);
+void calculate_waypoints(geometry_msgs::Point& center, std::vector<XYZYaw>& waypoints, int direction, int offset);
+void calculate_waypoints(geometry_msgs::Point& center, std::vector<XYZYaw>& waypoints, int direction, int offset, float mean_alt);
 
 #endif // HOVER_NODE_H

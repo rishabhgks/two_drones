@@ -46,20 +46,20 @@ int main(int argc, char **argv)
 
   drone1 = new Drone_Mission("frl_uas6", n);
 
-  drone2 = new Drone_Mission("frl_uas8", n);
+  drone2 = new Drone_Mission("frl_uas9", n);
 
   drone1->time = drone2->time = ros::Time::now().toSec();
 
   drone1->fix = n.subscribe("frl_uas6/dji_sdk/gps_position", 1, &drone1_gps_callback);
 
-  drone2->fix = n.subscribe("frl_uas8/dji_sdk/gps_position", 1, &drone2_gps_callback);
+  drone2->fix = n.subscribe("frl_uas9/dji_sdk/gps_position", 1, &drone2_gps_callback);
 
   ros::Subscriber ber_sub = n.subscribe("beam_forming_threshold", 1, &beam_forming_callback);
 
   // %EndTag(PUBLISHER)%
 
   // %Tag(LOOP_RATE)%
-  ros::Rate loop_rate(100);
+  ros::Rate loop_rate(600);
   // %EndTag(LOOP_RATE)%
 
   drone1->obtain_control_result = drone1->obtain_control();
@@ -96,7 +96,10 @@ int main(int argc, char **argv)
   static int count = 0;
   while (ros::ok())
   {
-    ROS_INFO("Current state: %d %d | Current position: %f %f %f | Current Time: %f", drone1->state, drone2->state, drone1->curr_odom_.pose.pose.position.x, drone1->curr_odom_.pose.pose.position.y, drone1->curr_odom_.pose.pose.position.z, (ros::Time::now().toSec() - drone1->time));
+    ROS_INFO("Target Position 1: %f %f %f | Target Position 2: %f %f %f | Mean Position: %f %f %f | %f %f %f | Current Time: %f", 
+              drone1->target.x, drone1->target.y, drone1->target.z, drone2->target.x, drone2->target.y, drone2->target.z, 
+              drone1->mean_start_gps_x, drone1->mean_start_gps_y, drone1->mean_start_gps_alt, 
+              drone2->mean_start_gps_x, drone2->mean_start_gps_y, drone2->mean_start_gps_alt, (ros::Time::now().toSec() - drone1->time));
     if((ros::Time::now().toSec() - drone1->time) > 20 && (ros::Time::now().toSec() - drone1->time) < 30 && count < 2) {
       ROS_INFO("Target position: %f %f %f | %f %f %f | Current Time: %f", drone1->target.x, drone1->target.y, drone1->target.z, drone2->target.x, drone2->target.y, drone2->target.z, (ros::Time::now().toSec() - drone1->time));
       drone1->state = drone2->state = 1;
@@ -108,9 +111,9 @@ int main(int argc, char **argv)
         center.y = (drone1->mean_start_gps_y + drone2->mean_start_gps_y)/2;
         center.z = (drone1->mean_start_gps_alt + drone2->mean_start_gps_alt)/2;
 
-        calculate_waypoints(center, drone1->waypoints, -1, 0);
+        calculate_waypoints(center, drone1->waypoints, -1, 0, drone1->mean_start_gps_alt);
 
-        calculate_waypoints(center, drone2->waypoints, 1, 0);
+        calculate_waypoints(center, drone2->waypoints, 1, 0, drone2->mean_start_gps_alt);
       }
       ++count;
       ROS_INFO("Trying to control now");
@@ -164,6 +167,52 @@ int main(int argc, char **argv)
         }
       }
     }
+
+    switch(drone1->state) {
+        case 0: 
+          break;
+        case 1:
+          if(drone1->finished == false) {
+            ROS_INFO("Commanding Drone 1 at waypoint %d", waypoint_count);
+            step(*drone1);
+          }
+          break;
+        case 2:
+          if(drone1->finished == false) {
+            step(*drone1);
+          } else {
+              drone1->finished = drone1->takeoff_land(6); //Landing
+              drone1->state = 0;
+              ROS_INFO("Done Landing");
+          }
+          break;
+        default:
+          ROS_INFO("Invalid State");
+          break;
+      }
+
+      switch(drone2->state) {
+        case 0: 
+          break;
+        case 1:
+          if(drone2->finished == false) {
+            ROS_INFO("Commanding Drone 2 at waypoint %d", waypoint_count);
+            step(*drone2);
+          }
+          break;
+        case 2:
+          if(drone2->finished == false) {
+            step(*drone2);
+          } else {
+              drone2->finished = drone2->takeoff_land(6); //Landing
+              drone2->state = 0;
+              ROS_INFO("Done Landing");
+          }
+          break;
+        default:
+          ROS_INFO("Invalid State");
+          break;
+      }
     // %Tag(SPINONCE)%
       // ros::spinOnce();
     // %EndTag(SPINONCE)%
@@ -308,7 +357,6 @@ void drone1_gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg) {
   static double start_alt_2 = 0;
   static double start_x_2 = 0;
   static double start_y_2 = 0;
-  // static double start_magx = 0;
   if((ros::Time::now().toSec() - drone1->time) < 20 && (ros::Time::now().toSec() - drone1->time) > 0) {
     count_2 += 1;
     start_alt_2 += drone1->current_gps.altitude;
@@ -319,27 +367,28 @@ void drone1_gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg) {
     drone1->mean_start_gps_y = start_y_2/count_2;
     // ROS_INFO("Mean drone1 altitude %f %f %d", drone1->mean_start_gps, start_alt_2, count_2);
   }
-  switch(drone1->state) {
-    case 0: 
-      break;
-    case 1:
-      if(drone1->finished == false) {
-        step(*drone1);
-      }
-      break;
-    case 2:
-      if(drone1->finished == false) {
-        step(*drone1);
-      } else {
-          drone1->finished = drone1->takeoff_land(6); //Landing
-          drone1->state = 0;
-          ROS_INFO("Done Landing");
-      }
-      break;
-    default:
-      ROS_INFO("Invalid State");
-      break;
-  }
+  // switch(drone1->state) {
+  //   case 0: 
+  //     break;
+  //   case 1:
+  //     if(drone1->finished == false) {
+  //       ROS_INFO("Commanding Drone 1 at waypoint %d", waypoint);
+  //       step(*drone1);
+  //     }
+  //     break;
+  //   case 2:
+  //     if(drone1->finished == false) {
+  //       step(*drone1);
+  //     } else {
+  //         drone1->finished = drone1->takeoff_land(6); //Landing
+  //         drone1->state = 0;
+  //         ROS_INFO("Done Landing");
+  //     }
+  //     break;
+  //   default:
+  //     ROS_INFO("Invalid State");
+  //     break;
+  // }
 }
 
 void drone2_gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg) {
@@ -349,7 +398,6 @@ void drone2_gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg) {
   static double start_alt_1 = 0;
   static double start_x_1 = 0;
   static double start_y_1 = 0;
-  // static double start_magx = 0;
   if((ros::Time::now().toSec() - drone2->time) < 20 && (ros::Time::now().toSec() - drone2->time) > 0) {
     count_1 += 1;
     start_alt_1 += drone2->current_gps.altitude;
@@ -360,27 +408,28 @@ void drone2_gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg) {
     drone2->mean_start_gps_y = start_y_1/count_1;
     // ROS_INFO("Mean drone1 altitude %f %f %d", drone2->mean_start_gps, start_alt_1, count_1);
   }
-  switch(drone2->state) {
-    case 0: 
-      break;
-    case 1:
-      if(drone2->finished == false) {
-        step(*drone2);
-      }
-      break;
-    case 2:
-      if(drone2->finished == false) {
-        step(*drone2);
-      } else {
-          drone2->finished = drone2->takeoff_land(6); //Landing
-          drone2->state = 0;
-          ROS_INFO("Done Landing");
-      }
-      break;
-    default:
-      ROS_INFO("Invalid State");
-      break;
-  }
+  // switch(drone2->state) {
+  //   case 0: 
+  //     break;
+  //   case 1:
+  //     if(drone2->finished == false) {
+  //       ROS_INFO("Commanding Drone 2 at waypoint %d", waypoint);
+  //       step(*drone2);
+  //     }
+  //     break;
+  //   case 2:
+  //     if(drone2->finished == false) {
+  //       step(*drone2);
+  //     } else {
+  //         drone2->finished = drone2->takeoff_land(6); //Landing
+  //         drone2->state = 0;
+  //         ROS_INFO("Done Landing");
+  //     }
+  //     break;
+  //   default:
+  //     ROS_INFO("Invalid State");
+  //     break;
+  // }
 }
 
 bool Drone_Mission::obtain_control()
@@ -564,50 +613,50 @@ void beam_forming_callback(const std_msgs::Float32ConstPtr& msg)
   ber = *msg;
 }
 
-void calculate_waypoints(geometry_msgs::Point& center, std::vector<XYZYaw>& waypoints, int direction, int offset)
+void calculate_waypoints(geometry_msgs::Point& center, std::vector<XYZYaw>& waypoints, int direction, int offset, float mean_alt)
 {
   /************* Formation 1 Begins **************/
   XYZYaw point;
   point.x = center.x + ((direction*1) - offset);
   point.y = center.y + offset;
-  point.z = center.z + 1.5;
+  point.z = mean_alt + 1.5;
   point.yaw = 0;
   waypoints.push_back(point);
   if (offset == 0)
   {
     point.x = center.x + (direction*1);
     point.y = center.y - 2;
-    point.z = center.z + 1.5;
+    point.z = mean_alt + 1.5;
     point.yaw = 0;
     waypoints.push_back(point);
     point.x = center.x + (direction*1);
     point.y = center.y - 2;
-    point.z = center.z + 1.5;
+    point.z = mean_alt + 1.5;
     point.yaw = 0;
     waypoints.push_back(point);
     point.x = center.x + (direction*3);
     point.y = center.y - 2;
-    point.z = center.z + 1.5;
+    point.z = mean_alt + 1.5;
     point.yaw = 0;
     waypoints.push_back(point);
     point.x = center.x + (direction*5);
     point.y = center.y;
-    point.z = center.z + 1.5;
+    point.z = mean_alt + 1.5;
     point.yaw = 0;
     waypoints.push_back(point);
     point.x = center.x + (direction*3);
     point.y = center.y + 2;
-    point.z = center.z + 1.5;
+    point.z = mean_alt + 1.5;
     point.yaw = 0;
     waypoints.push_back(point);
     point.x = center.x + (direction*1);
     point.y = center.y;
-    point.z = center.z + 1.5;
+    point.z = mean_alt + 1.5;
     point.yaw = 0;
     waypoints.push_back(point);
     point.x = center.x + (direction*3);
     point.y = center.y - 2;
-    point.z = center.z + 1.5;
+    point.z = mean_alt + 1.5;
     point.yaw = 0;
     waypoints.push_back(point);
   }
@@ -615,37 +664,37 @@ void calculate_waypoints(geometry_msgs::Point& center, std::vector<XYZYaw>& wayp
   {
     point.x = center.x + ((direction*1) - offset);
     point.y = center.y + offset;
-    point.z = center.z + 1.5;
+    point.z = mean_alt + 1.5;
     point.yaw = 0;
     waypoints.push_back(point);
     point.x = center.x + ((direction*1) - offset);
     point.y = center.y + offset;
-    point.z = center.z + 1.5;
+    point.z = mean_alt + 1.5;
     point.yaw = 0;
     waypoints.push_back(point);
     point.x = center.x + ((direction*1) - offset);
     point.y = center.y + offset;
-    point.z = center.z + 1.5;
+    point.z = mean_alt + 1.5;
     point.yaw = 0;
     waypoints.push_back(point);
     point.x = center.x - 2;
     point.y = center.y + (offset*3);
-    point.z = center.z + 1.5;
+    point.z = mean_alt + 1.5;
     point.yaw = 0;
     waypoints.push_back(point);
     point.x = center.x;
     point.y = center.y + (offset*5);
-    point.z = center.z + 1.5;
+    point.z = mean_alt + 1.5;
     point.yaw = 0;
     waypoints.push_back(point);
     point.x = center.x + 2;
     point.y = center.y + (offset*3);
-    point.z = center.z + 1.5;
+    point.z = mean_alt + 1.5;
     point.yaw = 0;
     waypoints.push_back(point);
     point.x = center.x + ((direction*1) - offset);
     point.y = center.y + offset;
-    point.z = center.z + 1.5;
+    point.z = mean_alt + 1.5;
     point.yaw = 0;
     waypoints.push_back(point);
   }

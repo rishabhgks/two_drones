@@ -4,12 +4,12 @@
 
     <!-- <arg name="drone_name" default="frl_uas6"/> -->
 
-    <group ns="frl_uas8">
+    <group ns="frl_uas9">
         <node name="odom_pub_node" type="odom_pub_node" pkg="two_drones" output="screen"/>
 
-        <node pkg="geonav_transform" type="geonav_transform_node" name="geonav_transform_node_8" clear_params="true">
-            <!-- <rosparam param="datum">[42.3779789581, -71.2935958949, 0.0]</rosparam> -->
-            <rosparam param="datum">[22.512813, 113.758902, 0.0]</rosparam>
+        <node pkg="geonav_transform" type="geonav_transform_node" name="geonav_transform_node_9" clear_params="true">
+            <rosparam param="datum">[42.3779789581, -71.2935958949, 0.0]</rosparam>
+            <!-- <rosparam param="datum">[22.512813, 113.758902, 0.0]</rosparam> -->
         </node>
     </group>
 
