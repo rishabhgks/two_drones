@@ -367,28 +367,6 @@ void drone1_gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg) {
     drone1->mean_start_gps_y = start_y_2/count_2;
     // ROS_INFO("Mean drone1 altitude %f %f %d", drone1->mean_start_gps, start_alt_2, count_2);
   }
-  // switch(drone1->state) {
-  //   case 0: 
-  //     break;
-  //   case 1:
-  //     if(drone1->finished == false) {
-  //       ROS_INFO("Commanding Drone 1 at waypoint %d", waypoint);
-  //       step(*drone1);
-  //     }
-  //     break;
-  //   case 2:
-  //     if(drone1->finished == false) {
-  //       step(*drone1);
-  //     } else {
-  //         drone1->finished = drone1->takeoff_land(6); //Landing
-  //         drone1->state = 0;
-  //         ROS_INFO("Done Landing");
-  //     }
-  //     break;
-  //   default:
-  //     ROS_INFO("Invalid State");
-  //     break;
-  // }
 }
 
 void drone2_gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg) {
@@ -408,28 +386,6 @@ void drone2_gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg) {
     drone2->mean_start_gps_y = start_y_1/count_1;
     // ROS_INFO("Mean drone1 altitude %f %f %d", drone2->mean_start_gps, start_alt_1, count_1);
   }
-  // switch(drone2->state) {
-  //   case 0: 
-  //     break;
-  //   case 1:
-  //     if(drone2->finished == false) {
-  //       ROS_INFO("Commanding Drone 2 at waypoint %d", waypoint);
-  //       step(*drone2);
-  //     }
-  //     break;
-  //   case 2:
-  //     if(drone2->finished == false) {
-  //       step(*drone2);
-  //     } else {
-  //         drone2->finished = drone2->takeoff_land(6); //Landing
-  //         drone2->state = 0;
-  //         ROS_INFO("Done Landing");
-  //     }
-  //     break;
-  //   default:
-  //     ROS_INFO("Invalid State");
-  //     break;
-  // }
 }
 
 bool Drone_Mission::obtain_control()
