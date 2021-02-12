@@ -157,7 +157,7 @@ public:
         // magnetic = nh.subscribe("/airsim_node/" + name + "/magnetometer/Magnetometer", 10, &Drone_Mission::magneticCallback, this);
         imu = nh.subscribe(name + "/dji_sdk/imu", 10, &Drone_Mission::imuCallback, this);
         odom = nh.subscribe(name + "/geonav_odom", 10, &Drone_Mission::odomCallback, this);
-        // fix = nh.subscribe(name + "/dji_sdk/gps_position", 10, &Drone_Mission::gps_callback, this);
+        fix = nh.subscribe(name + "/dji_sdk/gps_position", 10, &Drone_Mission::gps_callback, this);
         move_drone = nh.advertise<sensor_msgs::Joy>(name + "/dji_sdk/flight_control_setpoint_ENUvelocity_yawrate", 1);
         drone_frame = name + "/odom_local_ned";
 
@@ -202,7 +202,7 @@ public:
     bool takeoff_land(int task);
     void setTarget(float x, float y, float z, float yaw);
     void setTarget(XYZYaw& waypoint);
-    // void gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg);
+    void gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg);
 };
 
 // void drone1_imuCallback(const sensor_msgs::ImuConstPtr& msg);

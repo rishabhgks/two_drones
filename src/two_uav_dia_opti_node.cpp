@@ -13,12 +13,11 @@
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+#include <XmlRpcException.h>
 
 #include "dji_sdk/dji_sdk.h"
 
-Drone_Mission *drone1;
-
-Drone_Mission *drone2;
+std::vector<Drone_Mission> *drones;
 
 geometry_msgs::Point center;
 
@@ -27,6 +26,7 @@ const float rad2deg = 180.0/C_PI;
 std_msgs::Float32 ber;
 bool ber_mode = false;
 
+int num_drones;
 geometry_msgs::Vector3 waypoint;
 
 int main(int argc, char **argv)
@@ -40,23 +40,39 @@ int main(int argc, char **argv)
   ros::NodeHandle n;
   // %EndTag(NODEHANDLE)%
 
-  ros::AsyncSpinner spinner(2);
+  ros::AsyncSpinner spinner(4);
 
   spinner.start();
 
-  drone1 = new Drone_Mission("frl_uas6", n);
+  n.getParam("drones/count", num_drones);
 
-  drone2 = new Drone_Mission("frl_uas9", n);
+  XmlRpc::XmlRpcValue drones_param;
+  n.getParam("drones", drones_param);
 
-  drone1->time = drone2->time = ros::Time::now().toSec();
+  XmlRpc::XmlRpcValue uas_param;
+  n.getParam("uas_numbers", uas_param);
 
-  drone1->fix = n.subscribe("frl_uas6/dji_sdk/gps_position", 1, &drone1_gps_callback);
+  float start_time = ros::Time::now().toSec();
 
-  drone2->fix = n.subscribe("frl_uas9/dji_sdk/gps_position", 1, &drone2_gps_callback);
+  for (auto i = 0; i < num_drones; i++)
+  {
+    Drone_Mission *drone = Drone_Mission("frl_uas" + uas_param[i], n);
+    drone->time = start_time;
+    drone->obtain_control_result = drone->obtain_control();
+    drones->push_back(drone);
+  }
+
+  // drone1 = new Drone_Mission("frl_uas6", n);
+
+  // drone2 = new Drone_Mission("frl_uas9", n);
+
+  // drone1->time = drone2->time = ros::Time::now().toSec();
+
+  // drone1->fix = n.subscribe("frl_uas6/dji_sdk/gps_position", 1, &drone1_gps_callback);
+
+  // drone2->fix = n.subscribe("frl_uas9/dji_sdk/gps_position", 1, &drone2_gps_callback);
 
   ros::Subscriber ber_sub = n.subscribe("beam_forming_threshold", 1, &beam_forming_callback);
-
-  // %EndTag(PUBLISHER)%
 
   // %Tag(LOOP_RATE)%
   ros::Rate loop_rate(600);
@@ -213,9 +229,6 @@ int main(int argc, char **argv)
           ROS_INFO("Invalid State");
           break;
       }
-    // %Tag(SPINONCE)%
-      // ros::spinOnce();
-    // %EndTag(SPINONCE)%
 
     // %Tag(RATE_SLEEP)%
       loop_rate.sleep();
@@ -224,8 +237,6 @@ int main(int argc, char **argv)
 
   return 0;
 }
-// %EndTag(FULLTEXT)%
-
 
 double get_yaw_from_quat_msg(const geometry_msgs::Quaternion& quat_msg)
 {
@@ -235,7 +246,6 @@ double get_yaw_from_quat_msg(const geometry_msgs::Quaternion& quat_msg)
   tf2::Matrix3x3(quat_tf).getRPY(roll, pitch, yaw);
   return yaw;
 }
-
 
 void step(Drone_Mission &drone) {
   if(drone.finished != true) {
@@ -249,11 +259,6 @@ void step(Drone_Mission &drone) {
     // ROS_INFO("Trying to go to %f %f %f", drone.target.x, drone.target.y, drone.target.z);
   }
 }
-
-
-// void Drone_Mission::magneticCallback(const sensor_msgs::MagneticField::ConstPtr& msg) {
-//   current_magnetic = *msg;
-// }
 
 void Drone_Mission::imuCallback(const sensor_msgs::ImuConstPtr& msg) {
   sensor_msgs::Imu imu = *msg;
@@ -350,41 +355,20 @@ void Drone_Mission::check_reached_goal()
       reached_goal_ = true; 
 }
 
-void drone1_gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg) {
-  drone1->current_gps = *msg;
-  // utm_drone1->publish(current_drone1_utm);
+void Drone_Mission::gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg) {
+  current_gps = *msg;
   static int count_2 = 0;
   static double start_alt_2 = 0;
   static double start_x_2 = 0;
   static double start_y_2 = 0;
-  if((ros::Time::now().toSec() - drone1->time) < 20 && (ros::Time::now().toSec() - drone1->time) > 0) {
+  if((ros::Time::now().toSec() - time) < 20 && (ros::Time::now().toSec() - time) > 0) {
     count_2 += 1;
-    start_alt_2 += drone1->current_gps.altitude;
-    start_x_2 += drone1->curr_odom_.pose.pose.position.x;
-    start_y_2 += drone1->curr_odom_.pose.pose.position.y;
-    drone1->mean_start_gps_alt = start_alt_2/count_2;
-    drone1->mean_start_gps_x = start_x_2/count_2;
-    drone1->mean_start_gps_y = start_y_2/count_2;
-    // ROS_INFO("Mean drone1 altitude %f %f %d", drone1->mean_start_gps, start_alt_2, count_2);
-  }
-}
-
-void drone2_gps_callback(const sensor_msgs::NavSatFix::ConstPtr& msg) {
-  drone2->current_gps = *msg;
-  // utm_drone2->publish(current_drone1_utm);
-  static int count_1 = 0;
-  static double start_alt_1 = 0;
-  static double start_x_1 = 0;
-  static double start_y_1 = 0;
-  if((ros::Time::now().toSec() - drone2->time) < 20 && (ros::Time::now().toSec() - drone2->time) > 0) {
-    count_1 += 1;
-    start_alt_1 += drone2->current_gps.altitude;
-    start_x_1 += drone2->curr_odom_.pose.pose.position.x;
-    start_y_1 += drone2->curr_odom_.pose.pose.position.y;
-    drone2->mean_start_gps_alt = start_alt_1/count_1;
-    drone2->mean_start_gps_x = start_x_1/count_1;
-    drone2->mean_start_gps_y = start_y_1/count_1;
-    // ROS_INFO("Mean drone1 altitude %f %f %d", drone2->mean_start_gps, start_alt_1, count_1);
+    start_alt_2 += current_gps.altitude;
+    start_x_2 += curr_odom_.pose.pose.position.x;
+    start_y_2 += curr_odom_.pose.pose.position.y;
+    mean_start_gps_alt = start_alt_2/count_2;
+    mean_start_gps_x = start_x_2/count_2;
+    mean_start_gps_y = start_y_2/count_2;
   }
 }
 
