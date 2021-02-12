@@ -1,5 +1,9 @@
 # Inertial Navigation for Multi-Drone formation using DJI M100/M600
 
+This project was done as part of a research work inside the GENESYS (-Next GEneration NEtworks and SYStems) Lab at Northeastern University.
+
+![GENESYS](images/genesys_logo.png)
+
 This repo contains a ROS package that connects to multiple DJI drones via a shared network to move them around in a desired formation. 
 The desired formation waypoints are hardcoded in terms of distance but are independent of location.
 The ROS nodes can be used to launch DJI drones anywhere using the DJI ROS SDK to communicate with the onboard sensors.
